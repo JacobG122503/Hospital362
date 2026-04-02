@@ -1,0 +1,2 @@
+Dr. Sarah Kim|42|Female|515-555-0201|789 Maple Dr, Ames, IA|E2001|Medical Services|Surgeon|285000.0|2018-06-15
+Tom Bradley|29|Male|515-555-0202|321 Pine Ln, Ames, IA|E2002|Pharmacy|Pharmacist|128000.0|2022-01-10
