@@ -1,0 +1,307 @@
+package services;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Scanner;
+import objects.Patient;
+
+public class PharmacyService {
+    private final Path inventoryFile;
+    private final Path prescriptionsFile;
+
+    public PharmacyService(Path dataDir) {
+        this.inventoryFile = dataDir.resolve("pharmacy_inventory.txt");
+        this.prescriptionsFile = dataDir.resolve("prescriptions.txt");
+    }
+
+    public void initializeFiles() {
+        try {
+            if (!Files.exists(inventoryFile)) {
+                Files.createFile(inventoryFile);
+            }
+            if (!Files.exists(prescriptionsFile)) {
+                Files.createFile(prescriptionsFile);
+            }
+        } catch (IOException e) {
+            System.out.println("Error initializing pharmacy files: " + e.getMessage());
+        }
+    }
+
+    public void dispensePrescribedMedication(Scanner scanner, List<Patient> admittedPatients) {
+        System.out.print("\033[H\033[2J\033[3J");
+        System.out.flush();
+        System.out.println("\n  === Dispense Prescribed Medication ===\n");
+
+        List<Prescription> prescriptions = loadPrescriptions();
+        Map<String, Integer> inventory = loadInventory();
+
+        // Precondition: only show prescriptions whose patient is currently admitted
+        // and whose medication exists in inventory (quantity > 0).
+        ArrayList<Prescription> pending = new ArrayList<>();
+        for (Prescription p : prescriptions) {
+            if (!"pending".equalsIgnoreCase(p.status)) {
+                continue;
+            }
+            boolean admitted = false;
+            for (Patient patient : admittedPatients) {
+                if (patient.getPatientId().equalsIgnoreCase(p.patientId)) {
+                    admitted = true;
+                    break;
+                }
+            }
+            if (!admitted) {
+                continue;
+            }
+            int available = inventory.getOrDefault(p.medicationName, 0);
+            if (available < p.requiredQuantity) {
+                continue;
+            }
+            pending.add(p);
+        }
+
+        if (pending.isEmpty()) {
+            System.out.println("  No pending prescriptions.");
+            System.out.println("\n  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+
+        System.out.println("  Pending Prescriptions:");
+        for (int i = 0; i < pending.size(); i++) {
+            Prescription p = pending.get(i);
+            System.out.println("  " + (i + 1) + ". Rx " + p.prescriptionId
+                    + " | Patient: " + p.patientName
+                    + " | Medication: " + p.medicationName
+                    + " | Qty: " + p.requiredQuantity
+                    + " | Expires: " + p.expiryDate);
+        }
+
+        System.out.print("\n  Select prescription number to process: ");
+        String selection = scanner.nextLine().trim();
+
+        int index;
+        try {
+            index = Integer.parseInt(selection) - 1;
+        } catch (NumberFormatException ex) {
+            System.out.println("\n  Invalid selection.");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+
+        if (index < 0 || index >= pending.size()) {
+            System.out.println("\n  Invalid selection.");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+
+        Prescription selected = pending.get(index);
+
+        System.out.println("\n  Selected Prescription:");
+        System.out.println("  Medication: " + selected.medicationName);
+        System.out.println("  Dosage: " + selected.dosage);
+        System.out.println("  Required Quantity: " + selected.requiredQuantity);
+
+        LocalDate today = LocalDate.now();
+        if (selected.expiryDate != null && selected.expiryDate.isBefore(today)) {
+            System.out.println("\n  Warning: Prescription is expired.");
+            System.out.print("  Abort fulfillment and mark as invalid? (y/n): ");
+            String abort = scanner.nextLine().trim();
+            if (abort.equalsIgnoreCase("y")) {
+                selected.status = "invalid";
+                savePrescriptions(prescriptions);
+                System.out.println("\n  Prescription marked invalid. Notify Medical Services for a new prescription.");
+            } else {
+                System.out.println("\n  No changes saved.");
+            }
+            System.out.println("\n  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+
+        int available = inventory.getOrDefault(selected.medicationName, 0);
+        System.out.println("  Inventory Available: " + available);
+
+        if (available < selected.requiredQuantity) {
+            System.out.println("\n  Insufficient inventory. Fulfillment canceled.");
+            System.out.println("  Prescription remains pending. Initiate pharmacy supply ordering process.");
+            System.out.println("\n  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+
+        System.out.print("\n  Confirm medication is prepared and ready? (y/n): ");
+        String ready = scanner.nextLine().trim();
+        if (!ready.equalsIgnoreCase("y")) {
+            System.out.println("\n  Fulfillment canceled. Prescription remains pending.");
+            System.out.println("\n  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+
+        inventory.put(selected.medicationName, available - selected.requiredQuantity);
+        selected.status = "fulfilled";
+
+        saveInventory(inventory);
+        savePrescriptions(prescriptions);
+
+        System.out.println("\n  Fulfillment confirmed.");
+        System.out.println("  Inventory updated and prescription marked fulfilled.");
+        System.out.println("\n  Press Enter to return...");
+        scanner.nextLine();
+    }
+
+    private List<Prescription> loadPrescriptions() {
+        ArrayList<Prescription> prescriptions = new ArrayList<>();
+        try {
+            if (!Files.exists(prescriptionsFile)) {
+                return prescriptions;
+            }
+            for (String line : Files.readAllLines(prescriptionsFile)) {
+                if (line.isBlank()) {
+                    continue;
+                }
+                String[] parts = splitEscapedPipe(line);
+                if (parts.length != 8) {
+                    continue;
+                }
+                LocalDate expiry = null;
+                if (!parts[7].isBlank()) {
+                    try {
+                        expiry = LocalDate.parse(parts[7]);
+                    } catch (DateTimeParseException ignored) {
+                        expiry = null;
+                    }
+                }
+                Prescription p = new Prescription(
+                        parts[0],
+                        parts[1],
+                        parts[2],
+                        parts[3],
+                        parts[4],
+                        Integer.parseInt(parts[5]),
+                        parts[6],
+                        expiry
+                );
+                prescriptions.add(p);
+            }
+        } catch (IOException | NumberFormatException e) {
+            System.out.println("Error loading prescriptions: " + e.getMessage());
+        }
+        return prescriptions;
+    }
+
+    private Map<String, Integer> loadInventory() {
+        HashMap<String, Integer> inventory = new HashMap<>();
+        try {
+            if (!Files.exists(inventoryFile)) {
+                return inventory;
+            }
+            for (String line : Files.readAllLines(inventoryFile)) {
+                if (line.isBlank()) {
+                    continue;
+                }
+                String[] parts = splitEscapedPipe(line);
+                if (parts.length != 2) {
+                    continue;
+                }
+                inventory.put(parts[0], Integer.parseInt(parts[1]));
+            }
+        } catch (IOException | NumberFormatException e) {
+            System.out.println("Error loading inventory: " + e.getMessage());
+        }
+        return inventory;
+    }
+
+    private void savePrescriptions(List<Prescription> prescriptions) {
+        ArrayList<String> lines = new ArrayList<>();
+        for (Prescription p : prescriptions) {
+            lines.add(String.join("|",
+                    escape(p.prescriptionId),
+                    escape(p.patientId),
+                    escape(p.patientName),
+                    escape(p.medicationName),
+                    escape(p.dosage),
+                    Integer.toString(p.requiredQuantity),
+                    escape(p.status),
+                    p.expiryDate == null ? "" : p.expiryDate.toString()
+            ));
+        }
+        try {
+            Files.write(prescriptionsFile, lines);
+        } catch (IOException e) {
+            System.out.println("Error saving prescriptions: " + e.getMessage());
+        }
+    }
+
+    private void saveInventory(Map<String, Integer> inventory) {
+        ArrayList<String> lines = new ArrayList<>();
+        for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
+            lines.add(escape(entry.getKey()) + "|" + entry.getValue());
+        }
+        try {
+            Files.write(inventoryFile, lines);
+        } catch (IOException e) {
+            System.out.println("Error saving inventory: " + e.getMessage());
+        }
+    }
+
+    private String escape(String value) {
+        return value.replace("\\", "\\\\").replace("|", "\\|");
+    }
+
+    private String[] splitEscapedPipe(String line) {
+        ArrayList<String> parts = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean escaping = false;
+
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (escaping) {
+                current.append(c);
+                escaping = false;
+            } else if (c == '\\') {
+                escaping = true;
+            } else if (c == '|') {
+                parts.add(current.toString());
+                current.setLength(0);
+            } else {
+                current.append(c);
+            }
+        }
+        parts.add(current.toString());
+        return parts.toArray(new String[0]);
+    }
+
+    private static class Prescription {
+        String prescriptionId;
+        String patientId;
+        String patientName;
+        String medicationName;
+        String dosage;
+        int requiredQuantity;
+        String status;
+        LocalDate expiryDate;
+
+        Prescription(String prescriptionId, String patientId, String patientName,
+                     String medicationName, String dosage, int requiredQuantity,
+                     String status, LocalDate expiryDate) {
+            this.prescriptionId = prescriptionId;
+            this.patientId = patientId;
+            this.patientName = patientName;
+            this.medicationName = medicationName;
+            this.dosage = dosage;
+            this.requiredQuantity = requiredQuantity;
+            this.status = status;
+            this.expiryDate = expiryDate;
+        }
+    }
+}

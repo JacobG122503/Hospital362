@@ -5,6 +5,7 @@ import objects.Employee;
 import objects.Patient;
 import services.BannerService;
 import services.DataStoreService;
+import services.PharmacyService;
 import services.PersonCreationService;
 
 public class Main {
@@ -12,6 +13,7 @@ public class Main {
     static ArrayList<Employee> employees = new ArrayList<>();
     static Scanner scanner = new Scanner(System.in);
     static final DataStoreService dataStoreService = new DataStoreService(Paths.get("data"));
+    static final PharmacyService pharmacyService = new PharmacyService(Paths.get("data"));
 
     public static void main(String[] args) {
         initializeData();
@@ -22,6 +24,7 @@ public class Main {
     private static void initializeData() {
         dataStoreService.initializeDataDirectory();
         dataStoreService.loadData(patients, employees);
+        pharmacyService.initializeFiles();
     }
 
     private static void showMainMenu() {
@@ -40,6 +43,7 @@ public class Main {
                 "[1]  Log in as Employee",
                 "[2]  View All Patients",
                 "[3]  Create a New Person",
+                "[q]  Quit",
                 "",
                 "================================",
                 "",
@@ -79,6 +83,10 @@ public class Main {
                             () -> dataStoreService.saveData(patients, employees)
                     );
                     break;
+                case "q":
+                    System.out.println();
+                    System.exit(0);
+                    break;
                 default:
                     break;
             }
@@ -115,8 +123,19 @@ public class Main {
                 System.out.println("\n  Welcome, " + selected.getName() + "!");
                 System.out.println("  Department: " + selected.getDepartment());
                 System.out.println("  Role: " + selected.getRole());
-                System.out.println("\n  Press Enter to return to menu...");
-                scanner.nextLine();
+
+                if (isPharmacist(selected)) {
+                    System.out.println("\n  [1] Dispense prescribed medication");
+                    System.out.println("  [2] Return to main menu");
+                    System.out.print("\n  Select option: ");
+                    String pharmacistChoice = scanner.nextLine().trim();
+                    if ("1".equals(pharmacistChoice)) {
+                        pharmacyService.dispensePrescribedMedication(scanner, patients);
+                    }
+                } else {
+                    System.out.println("\n  Press Enter to return to menu...");
+                    scanner.nextLine();
+                }
                 return;
             }
         } catch (NumberFormatException ignored) {
@@ -126,6 +145,12 @@ public class Main {
         System.out.println("\n  Invalid employee selection.");
         System.out.println("  Press Enter to return to menu...");
         scanner.nextLine();
+    }
+
+    private static boolean isPharmacist(Employee employee) {
+        String department = employee.getDepartment() == null ? "" : employee.getDepartment();
+        String role = employee.getRole() == null ? "" : employee.getRole();
+        return department.equalsIgnoreCase("Pharmacy") || role.toLowerCase().contains("pharmacist");
     }
 
     private static void viewAllPatients() {
