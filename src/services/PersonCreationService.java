@@ -6,6 +6,7 @@ import objects.Employee;
 import objects.Patient;
 
 public class PersonCreationService {
+    private static String patientIDTag = "P";
     public static void createNewPerson(
             Scanner scanner,
             List<Patient> patients,
@@ -32,8 +33,6 @@ public class PersonCreationService {
         String address = scanner.nextLine().trim();
 
         if (type.equals("1")) {
-            System.out.print("  Patient ID: ");
-            String pid = scanner.nextLine().trim();
             System.out.print("  Diagnosis: ");
             String diag = scanner.nextLine().trim();
             System.out.print("  Room Number: ");
@@ -43,7 +42,7 @@ public class PersonCreationService {
             System.out.print("  Insurance Provider: ");
             String ins = scanner.nextLine().trim();
 
-            patients.add(new Patient(name, age, gender, phone, address, pid, diag, room, admDate, ins));
+            patients.add(new Patient(name, age, gender, phone, address, patientIDTag + (patients.size()  + 1), diag, room, admDate, ins));
             onSave.run();
             System.out.println("\n  Patient created successfully!");
         } else if (type.equals("2")) {
