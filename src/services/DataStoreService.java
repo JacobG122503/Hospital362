@@ -12,11 +12,13 @@ public class DataStoreService {
     private final Path dataDir;
     private final Path patientsFile;
     private final Path employeesFile;
+    private final Path blacklistedApplicantsFile;
 
     public DataStoreService(Path dataDir) {
         this.dataDir = dataDir;
         this.patientsFile = dataDir.resolve("patients.txt");
         this.employeesFile = dataDir.resolve("employees.txt");
+        this.blacklistedApplicantsFile = dataDir.resolve("blacklisted_applicants.txt");
     }
 
     public void initializeDataDirectory() {
@@ -121,6 +123,32 @@ public class DataStoreService {
             Files.write(employeesFile, employeeLines);
         } catch (IOException e) {
             System.out.println("Error saving data files: " + e.getMessage());
+        }
+    }
+
+    public void loadBlacklistedApplicants(java.util.Set<String> blacklistedApplicants) {
+        blacklistedApplicants.clear();
+        if (!Files.exists(blacklistedApplicantsFile)) {
+            return;
+        }
+
+        try {
+            for (String line : Files.readAllLines(blacklistedApplicantsFile)) {
+                if (!line.isBlank()) {
+                    blacklistedApplicants.add(line.trim().toLowerCase());
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Error loading blacklist file: " + e.getMessage());
+        }
+    }
+
+    public void saveBlacklistedApplicants(java.util.Set<String> blacklistedApplicants) {
+        ArrayList<String> lines = new ArrayList<>(blacklistedApplicants);
+        try {
+            Files.write(blacklistedApplicantsFile, lines);
+        } catch (IOException e) {
+            System.out.println("Error saving blacklist file: " + e.getMessage());
         }
     }
 

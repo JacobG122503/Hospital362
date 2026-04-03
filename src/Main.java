@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.nio.file.Paths;
 import java.util.Scanner;
 import objects.Employee;
@@ -8,6 +9,7 @@ import services.*;
 public class Main {
     static ArrayList<Patient> patients = new ArrayList<>();
     static ArrayList<Employee> employees = new ArrayList<>();
+    static HashSet<String> blacklistedApplicants = new HashSet<>();
     static Scanner scanner = new Scanner(System.in);
     static final DataStoreService dataStoreService = new DataStoreService(Paths.get("data"));
     static final PharmacyService pharmacyService = new PharmacyService(Paths.get("data"));
@@ -21,6 +23,7 @@ public class Main {
     private static void initializeData() {
         dataStoreService.initializeDataDirectory();
         dataStoreService.loadData(patients, employees);
+        dataStoreService.loadBlacklistedApplicants(blacklistedApplicants);
         pharmacyService.initializeFiles();
     }
 
@@ -40,6 +43,7 @@ public class Main {
                 "[1]  Log in as Employee",
                 "[2]  Patients",
                 "[3]  Create New Person",
+                "[4]  Hire New Employee",
                 "[q]  Quit",
                 "",
                 "================================",
@@ -82,6 +86,17 @@ public class Main {
                             patients,
                             employees,
                             () -> dataStoreService.saveData(patients, employees)
+                    );
+                    break;
+                case "4":
+                    HiringService.runHireNewEmployeeFlow(
+                            scanner,
+                            employees,
+                            blacklistedApplicants,
+                            () -> {
+                                dataStoreService.saveData(patients, employees);
+                                dataStoreService.saveBlacklistedApplicants(blacklistedApplicants);
+                            }
                     );
                     break;
                 case "q":
