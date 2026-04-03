@@ -69,9 +69,6 @@ public class PatientsService {
                             + " | Diagnosis: " + p.getDiagnosis());
                 }
             }
-
-            System.out.println("\n  Press Enter to return to menu...");
-            scanner.nextLine();
         }
         else if(type.equals(("3")))
         {
