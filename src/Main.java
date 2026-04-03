@@ -44,6 +44,7 @@ public class Main {
                 "[2]  Patients",
                 "[3]  Create New Person",
                 "[4]  Hire New Employee",
+                "[5]  Immediate Assistance",
                 "[q]  Quit",
                 "",
                 "================================",
@@ -98,6 +99,9 @@ public class Main {
                                 dataStoreService.saveBlacklistedApplicants(blacklistedApplicants);
                             }
                     );
+                    break;
+                case "5":
+                    needAssistance();
                     break;
                 case "q":
                     System.out.println();
@@ -159,6 +163,14 @@ public class Main {
         }
 
         System.out.println("\n  Invalid employee selection.");
+        System.out.println("  Press Enter to return to menu...");
+        scanner.nextLine();
+    }
+
+    public static void needAssistance()
+    {
+        System.out.println("Immediate Assistance button pressed");
+        System.out.println("Assistance is on the way... Stand by");
         System.out.println("  Press Enter to return to menu...");
         scanner.nextLine();
     }
