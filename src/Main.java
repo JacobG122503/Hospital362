@@ -11,8 +11,9 @@ public class Main {
     static ArrayList<Employee> employees = new ArrayList<>();
     static HashSet<String> blacklistedApplicants = new HashSet<>();
     static Scanner scanner = new Scanner(System.in);
-    static final DataStoreService dataStoreService = new DataStoreService(Paths.get("data"));
-    static final PharmacyService pharmacyService = new PharmacyService(Paths.get("data"));
+    static final DataStoreService dataStoreService = new DataStoreService(Paths.get("../data"));
+    static final PharmacyService pharmacyService = new PharmacyService(Paths.get("../data"));
+    static final RoomService roomService = new RoomService(Paths.get("../data"));
 
     public static void main(String[] args) {
         initializeData();
@@ -25,6 +26,8 @@ public class Main {
         dataStoreService.loadData(patients, employees);
         dataStoreService.loadBlacklistedApplicants(blacklistedApplicants);
         pharmacyService.initializeFiles();
+        roomService.initializeFile();
+        roomService.loadQueue();
     }
 
     private static void showMainMenu() {
@@ -144,17 +147,52 @@ public class Main {
                 System.out.println("  Department: " + selected.getDepartment());
                 System.out.println("  Role: " + selected.getRole());
 
-                if (isPharmacist(selected)) {
-                    System.out.println("\n  [1] Dispense prescribed medication");
-                    System.out.println("  [2] Return to main menu");
-                    System.out.print("\n  Select option: ");
-                    String pharmacistChoice = scanner.nextLine().trim();
-                    if ("1".equals(pharmacistChoice)) {
-                        pharmacyService.dispensePrescribedMedication(scanner, patients);
-                    }
-                } else {
+                boolean pharmacist = isPharmacist(selected);
+                boolean nurse = isNurse(selected);
+                boolean facilities = isFacilitiesManagement(selected);
+
+                if (!pharmacist && !nurse && !facilities) {
                     System.out.println("\n  Press Enter to return to menu...");
                     scanner.nextLine();
+                    return;
+                }
+
+                while (true) {
+                    System.out.println();
+                    int optNum = 1;
+                    if (pharmacist)  System.out.println("  [" + optNum++ + "] Dispense prescribed medication");
+                    if (nurse)       System.out.println("  [" + optNum++ + "] Request room cleaning");
+                    if (facilities)  System.out.println("  [" + optNum++ + "] Process cleaning queue");
+                    System.out.println("  [" + optNum + "] Return to main menu");
+                    System.out.print("\n  Select option: ");
+                    String empChoice = scanner.nextLine().trim();
+
+                    int opt = 1;
+                    boolean handled = false;
+                    if (pharmacist) {
+                        if (String.valueOf(opt).equals(empChoice)) {
+                            pharmacyService.dispensePrescribedMedication(scanner, patients);
+                            handled = true;
+                        }
+                        opt++;
+                    }
+                    if (!handled && nurse) {
+                        if (String.valueOf(opt).equals(empChoice)) {
+                            roomService.showNurseMenu(scanner, selected.getName());
+                            handled = true;
+                        }
+                        opt++;
+                    }
+                    if (!handled && facilities) {
+                        if (String.valueOf(opt).equals(empChoice)) {
+                            roomService.showFacilitiesMenu(scanner);
+                            handled = true;
+                        }
+                        opt++;
+                    }
+                    if (!handled || String.valueOf(opt).equals(empChoice)) {
+                        break;
+                    }
                 }
                 return;
             }
@@ -179,6 +217,16 @@ public class Main {
         String department = employee.getDepartment() == null ? "" : employee.getDepartment();
         String role = employee.getRole() == null ? "" : employee.getRole();
         return department.equalsIgnoreCase("Pharmacy") || role.toLowerCase().contains("pharmacist");
+    }
+
+    private static boolean isNurse(Employee employee) {
+        String role = employee.getRole() == null ? "" : employee.getRole();
+        return role.toLowerCase().contains("nurse");
+    }
+
+    private static boolean isFacilitiesManagement(Employee employee) {
+        String department = employee.getDepartment() == null ? "" : employee.getDepartment();
+        return department.equalsIgnoreCase("Facilities Management");
     }
 
 }
