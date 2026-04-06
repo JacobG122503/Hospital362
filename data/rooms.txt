@@ -1,0 +1,5 @@
+201|Available
+305|Occupied
+400|Available
+112|Available
+317|Occupied

@@ -422,3 +422,5 @@ FodyWeavers.xsd
 Hospital362.iml
 
 .idea
+
+*.class
