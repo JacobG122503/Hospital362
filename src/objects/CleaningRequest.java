@@ -1,6 +1,6 @@
 package objects;
 
-import util.CleaningType;
+import types.CleaningType;
 
 public class CleaningRequest {
     private String roomNumber;

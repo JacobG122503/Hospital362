@@ -1,4 +1,4 @@
-package util;
+package types;
 
 public enum CleaningType {
 	STANDARD,

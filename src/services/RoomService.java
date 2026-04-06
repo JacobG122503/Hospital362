@@ -13,7 +13,7 @@ import java.util.Scanner;
 
 import objects.CleaningRequest;
 import objects.Room;
-import util.CleaningType;
+import types.CleaningType;
 
 public class RoomService {
     private static final DateTimeFormatter TIMESTAMP_FMT =
