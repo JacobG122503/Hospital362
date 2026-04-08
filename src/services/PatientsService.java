@@ -11,6 +11,7 @@ public class PatientsService {
     public static void createService(
             Scanner scanner,
             List<Patient> patients,
+            RoomService roomService,
             Runnable onSave
     )
     {
@@ -20,6 +21,7 @@ public class PatientsService {
         System.out.println("  [1] New Patient");
         System.out.println("  [2] View All Patients");
         System.out.println("  [3] Search Patient");
+        System.out.println("  [4] Discharge Patient");
         System.out.print("\n  Select type: ");
         String type = scanner.nextLine().trim();
 
@@ -90,6 +92,9 @@ public class PatientsService {
             {
                 System.out.println(p.toString());
             }
+        } else if (type.equals("4")) {
+            DischargeService.runDischargeFlow(scanner, patients, roomService, onSave);
+            return;
         }
         else
         {
