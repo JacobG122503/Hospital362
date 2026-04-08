@@ -22,6 +22,19 @@ public class Patient extends Person {
         this.dischargeDate = "";
     }
 
+    public Patient(String name, int age, String gender, String phoneNumber, String address,
+               String patientId, String diagnosis, String roomNumber, String admissionDate,
+               String insuranceProvider, String status, String dischargeDate) {
+    super(name, age, gender, phoneNumber, address);
+    this.patientId = patientId;
+    this.diagnosis = diagnosis;
+    this.roomNumber = roomNumber;
+    this.admissionDate = admissionDate;
+    this.insuranceProvider = insuranceProvider;
+    this.status = status;
+    this.dischargeDate = dischargeDate;
+}
+
     public String getPatientId()         { return patientId; }
     public String getDiagnosis()         { return diagnosis; }
     public String getRoomNumber()        { return roomNumber; }
