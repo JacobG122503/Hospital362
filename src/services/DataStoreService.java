@@ -40,18 +40,20 @@ public class DataStoreService {
                         continue;
                     }
                     String[] p = splitEscapedPipe(line);
-                    if (p.length == 10) {
+                    if (p.length == 12) {
                         patients.add(new Patient(
-                                p[0],
-                                Integer.parseInt(p[1]),
-                                p[2],
-                                p[3],
-                                p[4],
-                                p[5],
-                                p[6],
-                                p[7],
-                                p[8],
-                                p[9]
+                            p[0], 
+                            Integer.parseInt(p[1]),
+                            p[2], 
+                            p[3], 
+                            p[4], 
+                            p[5], 
+                            p[6], 
+                            p[7], 
+                            p[8], 
+                            p[9],
+                            p[10], 
+                            p[11]
                         ));
                     }
                 }
@@ -99,7 +101,9 @@ public class DataStoreService {
                     escape(p.getDiagnosis()),
                     escape(p.getRoomNumber()),
                     escape(p.getAdmissionDate()),
-                    escape(p.getInsuranceProvider())
+                    escape(p.getInsuranceProvider()),
+                    escape(p.getStatus()),
+                    escape(p.getDischargeDate())
             ));
         }
 

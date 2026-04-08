@@ -1,0 +1,173 @@
+package services;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
+import objects.Patient;
+import types.CleaningType;
+
+public class DischargeService {
+
+    public static void runDischargeFlow(
+            Scanner scanner,
+            List<Patient> patients,
+            RoomService roomService,
+            Runnable onSave
+    ) {
+        System.out.print("\033[H\033[2J\033[3J");
+        System.out.flush();
+        System.out.println("\n  === Discharge Existing Patient ===\n");
+
+        // Step 1: Look up patient by ID or name
+        System.out.print("  Enter patient ID or name: ");
+        String query = scanner.nextLine().trim();
+
+        List<Patient> matches = new ArrayList<>();
+        for (Patient p : patients) {
+            if (!"admitted".equalsIgnoreCase(p.getStatus())) continue;
+            if (p.getPatientId().toLowerCase().contains(query.toLowerCase())
+                    || p.getName().toLowerCase().contains(query.toLowerCase())) {
+                matches.add(p);
+            }
+        }
+
+        if (matches.isEmpty()) {
+            System.out.println("\n  No admitted patients found matching \"" + query + "\".");
+            pause(scanner);
+            return;
+        }
+
+        // Step 2: Display matches and select
+        for (int i = 0; i < matches.size(); i++) {
+            System.out.println("\n  [" + (i + 1) + "] " + matches.get(i).toString());
+        }
+
+        System.out.print("\n  Select patient number: ");
+        int index;
+        try {
+            index = Integer.parseInt(scanner.nextLine().trim()) - 1;
+        } catch (NumberFormatException e) {
+            System.out.println("\n  Invalid selection.");
+            pause(scanner);
+            return;
+        }
+
+        if (index < 0 || index >= matches.size()) {
+            System.out.println("\n  Invalid selection.");
+            pause(scanner);
+            return;
+        }
+
+        Patient patient = matches.get(index);
+
+        // Step 3: Verify discharge authorization
+        System.out.println("\n  Discharge Authorization:");
+        System.out.println("  [1] Doctor has authorized discharge");
+        System.out.println("  [2] Patient signed Refusal of Treatment form");
+        System.out.print("\n  Select authorization type: ");
+        String authChoice = scanner.nextLine().trim();
+
+        if ("1".equals(authChoice)) {
+            System.out.println("\n  Discharge authorization confirmed.");
+        } else if ("2".equals(authChoice)) {
+            System.out.println("\n  Refusal of Treatment form on file.");
+            System.out.println("  Requesting liability waiver signature...");
+            System.out.print("  Has patient signed the liability waiver? (y/n): ");
+            if (!scanner.nextLine().trim().equalsIgnoreCase("y")) {
+                System.out.println("\n  Cannot proceed without liability waiver. Discharge cancelled.");
+                pause(scanner);
+                return;
+            }
+            System.out.println("  Liability waiver signed. Proceeding with discharge.");
+        } else {
+            System.out.println("\n  Invalid selection. Discharge cancelled.");
+            pause(scanner);
+            return;
+        }
+
+        // Steps 4-5: Generate and present bill
+        double bill = calculateBill(patient.getAdmissionDate(), LocalDate.now().toString());
+        System.out.println("\n  --- Patient Bill ---");
+        System.out.println("  Patient:        " + patient.getName());
+        System.out.println("  Admitted:       " + patient.getAdmissionDate());
+        System.out.println("  Discharge Date: " + LocalDate.now());
+        System.out.printf ("  Total Amount:   $%.2f%n", bill);
+
+        // Alternate flow: insurance
+        String insurance = patient.getInsuranceProvider();
+        boolean hasInsurance = !insurance.isBlank()
+                && !insurance.equalsIgnoreCase("none")
+                && !insurance.equalsIgnoreCase("n/a");
+
+        if (hasInsurance) {
+            System.out.println("\n  Billing Department: patient has coverage with " + insurance + ".");
+            System.out.print("  Will patient pay out-of-pocket or submit an insurance claim? (pay/claim): ");
+            String payChoice = scanner.nextLine().trim().toLowerCase();
+
+            if ("claim".equals(payChoice)) {
+                System.out.println("\n  Pulling up patient insurance information...");
+                System.out.println("  Insurance Provider: " + insurance);
+                System.out.println("  Billing Department submitting claim to " + insurance + "...");
+                System.out.println("  Claim submitted successfully.");
+                finalizeDischarge(patient, roomService, onSave);
+                pause(scanner);
+                return;
+            }
+            // "pay" falls through to standard payment below
+        }
+
+        // Steps 6-7: Collect payment confirmation
+        System.out.print("\n  Has the patient paid the bill? (y/n): ");
+        if (!scanner.nextLine().trim().equalsIgnoreCase("y")) {
+            System.out.println("\n  Payment not received. Discharge cancelled.");
+            pause(scanner);
+            return;
+        }
+        System.out.println("  Payment confirmed by Billing Department.");
+
+        // Steps 8-9: Finalize discharge
+        finalizeDischarge(patient, roomService, onSave);
+        pause(scanner);
+    }
+
+    private static void finalizeDischarge(Patient patient, RoomService roomService, Runnable onSave) {
+        String today = LocalDate.now().toString();
+        patient.setStatus("discharged");
+        patient.setDischargeDate(today);
+        onSave.run();
+        System.out.println("\n  Patient " + patient.getName()
+                + " (ID: " + patient.getPatientId() + ") successfully discharged.");
+        System.out.println("  Discharge date recorded: " + today);
+
+        // Submit cleaning request for vacated room
+        String room = patient.getRoomNumber();
+        if (!room.isBlank()) {
+            roomService.markRoomDirty(room);
+            System.out.println("  Room " + room + " marked as dirty.");
+        }
+    }
+
+    private static double calculateBill(String admissionDate, String dischargeDate) {
+        try {
+            LocalDate admitted  = LocalDate.parse(admissionDate);
+            LocalDate discharged = LocalDate.parse(dischargeDate);
+            long days = ChronoUnit.DAYS.between(admitted, discharged);
+            if (days < 1) days = 1;
+            return days * getDailyRate();
+        } catch (DateTimeParseException e) {
+            return getDailyRate();
+        }
+    }
+
+    private static double getDailyRate() {
+        return 850.00;
+    }
+
+    private static void pause(Scanner scanner) {
+        System.out.println("\n  Press Enter to return to menu...");
+        scanner.nextLine();
+    }
+}

@@ -130,6 +130,18 @@ public class RoomService {
         System.out.println("\n  Cleaning request submitted for Room " + roomNumber + ".");
     }
 
+    /** Allow external classes to set a room's status to dirty */
+    public void markRoomDirty(String roomNumber) {
+        List<Room> rooms = loadRooms();
+        for (Room r : rooms) {
+            if (r.getRoomNum().equalsIgnoreCase(roomNumber)) {
+                r.setStatus("Dirty");
+                break;
+            }
+        }
+        saveRooms(rooms);
+    }
+
     /**
      * Process the next pending cleaning request (Facilities Management).
      * Returns the completed request, or null if the queue is empty.

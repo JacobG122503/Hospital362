@@ -81,6 +81,7 @@ public class Main {
                     PatientsService.createService(
                             scanner,
                             patients,
+                            roomService,
                             () -> dataStoreService.saveData(patients, employees)
                     );
                     break;
