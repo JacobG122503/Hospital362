@@ -145,8 +145,8 @@ public class DischargeService {
         // Submit cleaning request for vacated room
         String room = patient.getRoomNumber();
         if (!room.isBlank()) {
-            roomService.requestCleaning(room, CleaningType.STANDARD, "Receptionist (Discharge)", "");
-            System.out.println("  Room " + room + " queued for standard cleaning.");
+            roomService.markRoomDirty(room);
+            System.out.println("  Room " + room + " marked as dirty.");
         }
     }
 
