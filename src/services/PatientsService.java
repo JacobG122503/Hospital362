@@ -79,7 +79,7 @@ public class PatientsService {
             List<Patient> similarNames = new ArrayList<Patient>();
             for(Patient p : patients)
             {
-                if(p.getName().contains(patientName))
+                if(p.getName().toLowerCase().contains(patientName.toLowerCase()))
                 {
                     similarNames.add(p);
                 }
