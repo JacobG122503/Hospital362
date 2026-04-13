@@ -16,9 +16,9 @@ public class DataStoreService {
 
     public DataStoreService(Path dataDir) {
         this.dataDir = dataDir;
-        this.patientsFile = dataDir.resolve("patients.txt");
-        this.employeesFile = dataDir.resolve("employees.txt");
-        this.blacklistedApplicantsFile = dataDir.resolve("blacklisted_applicants.txt");
+        this.patientsFile = dataDir.resolve("patients.csv");
+        this.employeesFile = dataDir.resolve("employees.csv");
+        this.blacklistedApplicantsFile = dataDir.resolve("blacklisted_applicants.csv");
     }
 
     public void initializeDataDirectory() {
@@ -35,24 +35,24 @@ public class DataStoreService {
 
         try {
             if (Files.exists(patientsFile)) {
-                for (String line : Files.readAllLines(patientsFile)) {
-                    if (line.isBlank()) {
-                        continue;
-                    }
-                    String[] p = splitEscapedPipe(line);
+                List<String> lines = Files.readAllLines(patientsFile);
+                for (int i = 1; i < lines.size(); i++) { // skip header
+                    String line = lines.get(i);
+                    if (line.isBlank()) continue;
+                    String[] p = parseCsvLine(line, 12);
                     if (p.length == 12) {
                         patients.add(new Patient(
-                            p[0], 
+                            p[0],
                             Integer.parseInt(p[1]),
-                            p[2], 
-                            p[3], 
-                            p[4], 
-                            p[5], 
-                            p[6], 
-                            p[7], 
-                            p[8], 
+                            p[2],
+                            p[3],
+                            p[4],
+                            p[5],
+                            p[6],
+                            p[7],
+                            p[8],
                             p[9],
-                            p[10], 
+                            p[10],
                             p[11]
                         ));
                     }
@@ -60,11 +60,11 @@ public class DataStoreService {
             }
 
             if (Files.exists(employeesFile)) {
-                for (String line : Files.readAllLines(employeesFile)) {
-                    if (line.isBlank()) {
-                        continue;
-                    }
-                    String[] e = splitEscapedPipe(line);
+                List<String> lines = Files.readAllLines(employeesFile);
+                for (int i = 1; i < lines.size(); i++) { // skip header
+                    String line = lines.get(i);
+                    if (line.isBlank()) continue;
+                    String[] e = parseCsvLine(line, 10);
                     if (e.length == 10) {
                         employees.add(new Employee(
                                 e[0],
@@ -90,35 +90,37 @@ public class DataStoreService {
         ArrayList<String> patientLines = new ArrayList<>();
         ArrayList<String> employeeLines = new ArrayList<>();
 
+        patientLines.add("Name,Age,Gender,Phone,Address,PatientId,Diagnosis,Room,AdmissionDate,InsuranceProvider,Status,DischargeDate");
         for (Patient p : patients) {
-            patientLines.add(String.join("|",
-                    escape(p.getName()),
+            patientLines.add(String.join(",",
+                    escapeCsv(p.getName()),
                     Integer.toString(p.getAge()),
-                    escape(p.getGender()),
-                    escape(p.getPhoneNumber()),
-                    escape(p.getAddress()),
-                    escape(p.getPatientId()),
-                    escape(p.getDiagnosis()),
-                    escape(p.getRoomNumber()),
-                    escape(p.getAdmissionDate()),
-                    escape(p.getInsuranceProvider()),
-                    escape(p.getStatus()),
-                    escape(p.getDischargeDate())
+                    escapeCsv(p.getGender()),
+                    escapeCsv(p.getPhoneNumber()),
+                    escapeCsv(p.getAddress()),
+                    escapeCsv(p.getPatientId()),
+                    escapeCsv(p.getDiagnosis()),
+                    escapeCsv(p.getRoomNumber()),
+                    escapeCsv(p.getAdmissionDate()),
+                    escapeCsv(p.getInsuranceProvider()),
+                    escapeCsv(p.getStatus()),
+                    escapeCsv(p.getDischargeDate())
             ));
         }
 
+        employeeLines.add("Name,Age,Gender,Phone,Address,EmployeeId,Department,Role,Salary,HireDate");
         for (Employee e : employees) {
-            employeeLines.add(String.join("|",
-                    escape(e.getName()),
+            employeeLines.add(String.join(",",
+                    escapeCsv(e.getName()),
                     Integer.toString(e.getAge()),
-                    escape(e.getGender()),
-                    escape(e.getPhoneNumber()),
-                    escape(e.getAddress()),
-                    escape(e.getEmployeeId()),
-                    escape(e.getDepartment()),
-                    escape(e.getRole()),
+                    escapeCsv(e.getGender()),
+                    escapeCsv(e.getPhoneNumber()),
+                    escapeCsv(e.getAddress()),
+                    escapeCsv(e.getEmployeeId()),
+                    escapeCsv(e.getDepartment()),
+                    escapeCsv(e.getRole()),
                     Double.toString(e.getSalary()),
-                    escape(e.getHireDate())
+                    escapeCsv(e.getHireDate())
             ));
         }
 
@@ -135,9 +137,10 @@ public class DataStoreService {
         if (!Files.exists(blacklistedApplicantsFile)) {
             return;
         }
-
         try {
-            for (String line : Files.readAllLines(blacklistedApplicantsFile)) {
+            List<String> lines = Files.readAllLines(blacklistedApplicantsFile);
+            for (int i = 1; i < lines.size(); i++) { // skip header
+                String line = lines.get(i);
                 if (!line.isBlank()) {
                     blacklistedApplicants.add(line.trim().toLowerCase());
                 }
@@ -148,7 +151,11 @@ public class DataStoreService {
     }
 
     public void saveBlacklistedApplicants(java.util.Set<String> blacklistedApplicants) {
-        ArrayList<String> lines = new ArrayList<>(blacklistedApplicants);
+        ArrayList<String> lines = new ArrayList<>();
+        lines.add("ApplicantName");
+        for (String name : blacklistedApplicants) {
+            lines.add(name);
+        }
         try {
             Files.write(blacklistedApplicantsFile, lines);
         } catch (IOException e) {
@@ -156,31 +163,37 @@ public class DataStoreService {
         }
     }
 
-    private String escape(String value) {
-        return value.replace("\\", "\\\\").replace("|", "\\|");
+    // CSV escaping: wrap in quotes if contains comma or quote, double quotes inside
+    private String escapeCsv(String value) {
+        if (value == null) return "";
+        if (value.contains(",") || value.contains("\"")) {
+            value = value.replace("\"", "\"\"");
+            return '"' + value + '"';
+        }
+        return value;
     }
 
-    private String[] splitEscapedPipe(String line) {
-        ArrayList<String> parts = new ArrayList<>();
-        StringBuilder current = new StringBuilder();
-        boolean escaping = false;
-
+    // Simple CSV parser for fixed columns (does not handle all edge cases)
+    private String[] parseCsvLine(String line, int expectedCols) {
+        List<String> result = new ArrayList<>();
+        boolean inQuotes = false;
+        StringBuilder sb = new StringBuilder();
+        int col = 0;
         for (int i = 0; i < line.length(); i++) {
             char c = line.charAt(i);
-            if (escaping) {
-                current.append(c);
-                escaping = false;
-            } else if (c == '\\') {
-                escaping = true;
-            } else if (c == '|') {
-                parts.add(current.toString());
-                current.setLength(0);
+            if (c == '"') {
+                inQuotes = !inQuotes;
+            } else if (c == ',' && !inQuotes) {
+                result.add(sb.toString().replace("\"\"", "\""));
+                sb.setLength(0);
+                col++;
             } else {
-                current.append(c);
+                sb.append(c);
             }
         }
-
-        parts.add(current.toString());
-        return parts.toArray(new String[0]);
+        result.add(sb.toString().replace("\"\"", "\""));
+        // Pad with empty strings if missing columns
+        while (result.size() < expectedCols) result.add("");
+        return result.toArray(new String[0]);
     }
 }

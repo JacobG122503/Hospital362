@@ -33,10 +33,10 @@ public class CleaningRequest {
     @Override
     public String toString() {
         String base = "Room: " + roomNumber
-                + " | Type: " + cleaningType
-                + " | Requested By: " + requestedByName
-                + " | Submitted: " + timestamp
-                + " | Status: " + status;
+                + ", Type: " + cleaningType
+                + ", Requested By: " + requestedByName
+                + ", Submitted: " + timestamp
+                + ", Status: " + status;
         return details.isEmpty() ? base : base + " | Details: " + details;
     }
 }

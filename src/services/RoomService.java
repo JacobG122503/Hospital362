@@ -24,8 +24,8 @@ public class RoomService {
     private final Queue<CleaningRequest> cleaningQueue = new LinkedList<>();
 
     public RoomService(Path dataDir) {
-        this.roomsPath = dataDir.resolve("rooms.txt");
-        this.cleaningRequestsPath = dataDir.resolve("cleaning_requests.txt");
+        this.roomsPath = dataDir.resolve("rooms.csv");
+        this.cleaningRequestsPath = dataDir.resolve("cleaning_requests.csv");
     }
 
     public void initializeFile() {
@@ -48,9 +48,11 @@ public class RoomService {
             if (!Files.exists(cleaningRequestsPath)) {
                 return;
             }
-            for (String line : Files.readAllLines(cleaningRequestsPath)) {
+            List<String> lines = Files.readAllLines(cleaningRequestsPath);
+            for (int i = 1; i < lines.size(); i++) { // skip header
+                String line = lines.get(i);
                 if (line.isBlank()) continue;
-                String[] parts = splitEscapedPipe(line);
+                String[] parts = parseCsvLine(line, 6);
                 if (parts.length < 5) continue;
                 CleaningType type;
                 try {
@@ -73,14 +75,15 @@ public class RoomService {
     /** Persist only the pending requests currently in the queue. */
     private void saveQueue() {
         List<String> lines = new ArrayList<>();
+        lines.add("RoomNum,CleaningType,Date,RequestedBy,Status,Details");
         for (CleaningRequest req : cleaningQueue) {
-            lines.add(String.join("|",
-                    escape(req.getRoomNumber()),
-                    escape(req.getCleaningType().name()),
-                    escape(req.getRequestedByName()),
-                    escape(req.getTimestamp()),
-                    escape(req.getStatus()),
-                    escape(req.getDetails())
+            lines.add(String.join(",",
+                    escapeCsv(req.getRoomNumber()),
+                    escapeCsv(req.getCleaningType().name()),
+                    escapeCsv(req.getTimestamp()),
+                    escapeCsv(req.getRequestedByName()),
+                    escapeCsv(req.getStatus()),
+                    escapeCsv(req.getDetails())
             ));
         }
         try {
@@ -95,9 +98,11 @@ public class RoomService {
         List<Room> rooms = new ArrayList<>();
         try {
             if (!Files.exists(roomsPath)) return rooms;
-            for (String line : Files.readAllLines(roomsPath)) {
+            List<String> lines = Files.readAllLines(roomsPath);
+            for (int i = 1; i < lines.size(); i++) { // skip header
+                String line = lines.get(i);
                 if (line.isBlank()) continue;
-                String[] parts = splitEscapedPipe(line);
+                String[] parts = parseCsvLine(line, 2);
                 if (parts.length == 2) {
                     rooms.add(new Room(parts[0], parts[1]));
                 }
@@ -111,8 +116,9 @@ public class RoomService {
     /** Persist the current room list to rooms.txt. */
     private void saveRooms(List<Room> rooms) {
         List<String> lines = new ArrayList<>();
+        lines.add("RoomNum,Status");
         for (Room r : rooms) {
-            lines.add(escape(r.getRoomNum()) + "|" + escape(r.getStatus()));
+            lines.add(escapeCsv(r.getRoomNum()) + "," + escapeCsv(r.getStatus()));
         }
         try {
             Files.write(roomsPath, lines);
@@ -367,30 +373,38 @@ public class RoomService {
     //  Pipe-delimited file helpers (same pattern as DataStoreService)     //
     // ------------------------------------------------------------------ //
 
-    private String escape(String value) {
-        return value.replace("\\", "\\\\").replace("|", "\\|");
+    // CSV escaping: wrap in quotes if contains comma or quote, double quotes inside
+    private String escapeCsv(String value) {
+        if (value == null) return "";
+        if (value.contains(",") || value.contains("\"")) {
+            value = value.replace("\"", "\"\"");
+            return '"' + value + '"';
+        }
+        return value;
     }
 
-    private String[] splitEscapedPipe(String line) {
-        List<String> parts = new ArrayList<>();
-        StringBuilder current = new StringBuilder();
-        boolean escaping = false;
+    // Simple CSV parser for fixed columns (does not handle all edge cases)
+    private String[] parseCsvLine(String line, int expectedCols) {
+        List<String> result = new ArrayList<>();
+        boolean inQuotes = false;
+        StringBuilder sb = new StringBuilder();
+        int col = 0;
         for (int i = 0; i < line.length(); i++) {
             char c = line.charAt(i);
-            if (escaping) {
-                current.append(c);
-                escaping = false;
-            } else if (c == '\\') {
-                escaping = true;
-            } else if (c == '|') {
-                parts.add(current.toString());
-                current.setLength(0);
+            if (c == '"') {
+                inQuotes = !inQuotes;
+            } else if (c == ',' && !inQuotes) {
+                result.add(sb.toString().replace("\"\"", "\""));
+                sb.setLength(0);
+                col++;
             } else {
-                current.append(c);
+                sb.append(c);
             }
         }
-        parts.add(current.toString());
-        return parts.toArray(new String[0]);
+        result.add(sb.toString().replace("\"\"", "\""));
+        // Pad with empty strings if missing columns
+        while (result.size() < expectedCols) result.add("");
+        return result.toArray(new String[0]);
     }
 }
 

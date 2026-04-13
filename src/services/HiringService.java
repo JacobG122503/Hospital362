@@ -68,7 +68,7 @@ public class HiringService {
         onSave.run();
 
         System.out.println("\n  Onboarding started. New employee added to system:");
-        System.out.println("  " + newEmployee.getName() + " | ID: " + newEmployee.getEmployeeId());
+        System.out.println("  " + newEmployee.getName() + ", ID: " + newEmployee.getEmployeeId());
         pause(scanner);
     }
 

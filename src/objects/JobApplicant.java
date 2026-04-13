@@ -27,6 +27,6 @@ public class JobApplicant extends Person {
     }
 
     public String getApplicantKey() {
-        return (getName().trim() + "|" + getPhoneNumber().trim()).toLowerCase();
+        return (getName().trim() + "," + getPhoneNumber().trim()).toLowerCase();
     }
 }

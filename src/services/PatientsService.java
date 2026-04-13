@@ -65,10 +65,10 @@ public class PatientsService {
             } else {
                 for (int i = 0; i < patients.size(); i++) {
                     Patient p = patients.get(i);
-                    System.out.println("  " + (i + 1) + ". " + p.getName()
-                            + " | ID: " + p.getPatientId()
-                            + " | Room: " + p.getRoomNumber()
-                            + " | Diagnosis: " + p.getDiagnosis());
+                        System.out.println("  " + (i + 1) + ". " + p.getName()
+                            + ", ID: " + p.getPatientId()
+                            + ", Room: " + p.getRoomNumber()
+                            + ", Diagnosis: " + p.getDiagnosis());
                 }
             }
         }
