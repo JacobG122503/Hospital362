@@ -1,0 +1,2 @@
+PrescriptionId,PatientId,PatientName,MedicationName,Dosage,RequiredQuantity,Status,ExpiryDate
+RX-1002,P1002,James Carter,Heparin,"5,000 units",5,pending,2026-04-20

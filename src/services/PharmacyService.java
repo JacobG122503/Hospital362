@@ -17,8 +17,8 @@ public class PharmacyService {
     private final Path prescriptionsFile;
 
     public PharmacyService(Path dataDir) {
-        this.inventoryFile = dataDir.resolve("pharmacy_inventory.txt");
-        this.prescriptionsFile = dataDir.resolve("prescriptions.txt");
+        this.inventoryFile = dataDir.resolve("pharmacy_inventory.csv");
+        this.prescriptionsFile = dataDir.resolve("prescriptions.csv");
     }
 
     public void initializeFiles() {
@@ -77,10 +77,10 @@ public class PharmacyService {
         for (int i = 0; i < pending.size(); i++) {
             Prescription p = pending.get(i);
             System.out.println("  " + (i + 1) + ". Rx " + p.prescriptionId
-                    + " | Patient: " + p.patientName
-                    + " | Medication: " + p.medicationName
-                    + " | Qty: " + p.requiredQuantity
-                    + " | Expires: " + p.expiryDate);
+                + ", Patient: " + p.patientName
+                + ", Medication: " + p.medicationName
+                + ", Qty: " + p.requiredQuantity
+                + ", Expires: " + p.expiryDate);
         }
 
         System.out.print("\n  Select prescription number to process: ");
@@ -165,14 +165,12 @@ public class PharmacyService {
             if (!Files.exists(prescriptionsFile)) {
                 return prescriptions;
             }
-            for (String line : Files.readAllLines(prescriptionsFile)) {
-                if (line.isBlank()) {
-                    continue;
-                }
-                String[] parts = splitEscapedPipe(line);
-                if (parts.length != 8) {
-                    continue;
-                }
+            List<String> lines = Files.readAllLines(prescriptionsFile);
+            for (int i = 1; i < lines.size(); i++) { // skip header
+                String line = lines.get(i);
+                if (line.isBlank()) continue;
+                String[] parts = parseCsvLine(line, 8);
+                if (parts.length != 8) continue;
                 LocalDate expiry = null;
                 if (!parts[7].isBlank()) {
                     try {
@@ -205,14 +203,12 @@ public class PharmacyService {
             if (!Files.exists(inventoryFile)) {
                 return inventory;
             }
-            for (String line : Files.readAllLines(inventoryFile)) {
-                if (line.isBlank()) {
-                    continue;
-                }
-                String[] parts = splitEscapedPipe(line);
-                if (parts.length != 2) {
-                    continue;
-                }
+            List<String> lines = Files.readAllLines(inventoryFile);
+            for (int i = 1; i < lines.size(); i++) { // skip header
+                String line = lines.get(i);
+                if (line.isBlank()) continue;
+                String[] parts = parseCsvLine(line, 2);
+                if (parts.length != 2) continue;
                 inventory.put(parts[0], Integer.parseInt(parts[1]));
             }
         } catch (IOException | NumberFormatException e) {
@@ -223,15 +219,16 @@ public class PharmacyService {
 
     private void savePrescriptions(List<Prescription> prescriptions) {
         ArrayList<String> lines = new ArrayList<>();
+        lines.add("PrescriptionId,PatientId,PatientName,MedicationName,Dosage,RequiredQuantity,Status,ExpiryDate");
         for (Prescription p : prescriptions) {
-            lines.add(String.join("|",
-                    escape(p.prescriptionId),
-                    escape(p.patientId),
-                    escape(p.patientName),
-                    escape(p.medicationName),
-                    escape(p.dosage),
+            lines.add(String.join(",",
+                    escapeCsv(p.prescriptionId),
+                    escapeCsv(p.patientId),
+                    escapeCsv(p.patientName),
+                    escapeCsv(p.medicationName),
+                    escapeCsv(p.dosage),
                     Integer.toString(p.requiredQuantity),
-                    escape(p.status),
+                    escapeCsv(p.status),
                     p.expiryDate == null ? "" : p.expiryDate.toString()
             ));
         }
@@ -244,8 +241,9 @@ public class PharmacyService {
 
     private void saveInventory(Map<String, Integer> inventory) {
         ArrayList<String> lines = new ArrayList<>();
+        lines.add("Medication,Quantity");
         for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
-            lines.add(escape(entry.getKey()) + "|" + entry.getValue());
+            lines.add(escapeCsv(entry.getKey()) + "," + entry.getValue());
         }
         try {
             Files.write(inventoryFile, lines);
@@ -254,31 +252,38 @@ public class PharmacyService {
         }
     }
 
-    private String escape(String value) {
-        return value.replace("\\", "\\\\").replace("|", "\\|");
+    // CSV escaping: wrap in quotes if contains comma or quote, double quotes inside
+    private String escapeCsv(String value) {
+        if (value == null) return "";
+        if (value.contains(",") || value.contains("\"")) {
+            value = value.replace("\"", "\"\"");
+            return '"' + value + '"';
+        }
+        return value;
     }
 
-    private String[] splitEscapedPipe(String line) {
-        ArrayList<String> parts = new ArrayList<>();
-        StringBuilder current = new StringBuilder();
-        boolean escaping = false;
-
+    // Simple CSV parser for fixed columns (does not handle all edge cases)
+    private String[] parseCsvLine(String line, int expectedCols) {
+        List<String> result = new ArrayList<>();
+        boolean inQuotes = false;
+        StringBuilder sb = new StringBuilder();
+        int col = 0;
         for (int i = 0; i < line.length(); i++) {
             char c = line.charAt(i);
-            if (escaping) {
-                current.append(c);
-                escaping = false;
-            } else if (c == '\\') {
-                escaping = true;
-            } else if (c == '|') {
-                parts.add(current.toString());
-                current.setLength(0);
+            if (c == '"') {
+                inQuotes = !inQuotes;
+            } else if (c == ',' && !inQuotes) {
+                result.add(sb.toString().replace("\"\"", "\""));
+                sb.setLength(0);
+                col++;
             } else {
-                current.append(c);
+                sb.append(c);
             }
         }
-        parts.add(current.toString());
-        return parts.toArray(new String[0]);
+        result.add(sb.toString().replace("\"\"", "\""));
+        // Pad with empty strings if missing columns
+        while (result.size() < expectedCols) result.add("");
+        return result.toArray(new String[0]);
     }
 
     private static class Prescription {

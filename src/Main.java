@@ -132,9 +132,9 @@ public class Main {
         for (int i = 0; i < employees.size(); i++) {
             Employee e = employees.get(i);
             System.out.println("  " + (i + 1) + ". " + e.getName()
-                    + " | ID: " + e.getEmployeeId()
-                    + " | Department: " + e.getDepartment()
-                    + " | Role: " + e.getRole());
+                    + ", ID: " + e.getEmployeeId()
+                    + ", Department: " + e.getDepartment()
+                    + ", Role: " + e.getRole());
         }
 
         System.out.print("\n  Select employee number: ");
