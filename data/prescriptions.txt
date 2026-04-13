@@ -1,3 +1,1 @@
-RX-1001|P1001|Maria Lopez|Amoxicillin|500mg twice daily|10|fulfilled|2026-04-20
 RX-1002|P1002|James Carter|Heparin|5,000 units|5|pending|2026-04-20
-RX-1003|P1001|Maria Lopez|Ibuprofen|200mg every 8h|12|invalid|2026-03-30

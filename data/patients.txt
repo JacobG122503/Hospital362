@@ -1,3 +1,2 @@
-Maria Lopez|34|Female|515-555-0101|123 Elm St, Ames, IA|P1001|Pneumonia|201|2026-03-28|Blue Cross
-James Carter|58|Male|515-555-0102|456 Oak Ave, Ames, IA|P1002|Fractured Femur|305|2026-03-30|Aetna
-Joe Smith|39|Male|563-555-1111|789 Spruce St, Ames, IA|P1003|Observation|201|2026-04-13|None
+Maria Lopez|34|Female|515-555-0101|123 Elm St, Ames, IA|P1001|Pneumonia|201|2026-03-28|Blue Cross|admitted|
+James Carter|58|Male|515-555-0102|456 Oak Ave, Ames, IA|P1002|Fractured Femur|305|2026-03-30|Aetna|admitted|
