@@ -310,6 +310,17 @@ public class RoomService {
 
         requestCleaning(selectedRoom, selectedType, nurseName, details);
 
+        if (!overrideNote.isEmpty()) {
+            rooms = loadRooms();
+            for (Room r : rooms) {
+                if (r.getRoomNum().equalsIgnoreCase(selectedRoom)) {
+                    r.setStatus("Unavailable");
+                    break;
+                }
+            }
+            saveRooms(rooms);
+        }
+
         System.out.println("  Press Enter to return...");
         scanner.nextLine();
     }
