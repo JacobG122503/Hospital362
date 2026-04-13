@@ -3,3 +3,6 @@
 400|Dirty
 112|Dirty
 317|Occupied
+---
+// Demo: Room for new patient
+210|Available

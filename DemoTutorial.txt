@@ -1,0 +1,42 @@
+Hospital362 Demo Tutorial
+========================
+
+This tutorial will guide you through the main demo scenarios. Each scenario can be performed using the application's menu or command interface.
+
+1. Admit New Patient
+--------------------
+- Use the "Admit Patient" feature.
+- Enter the details for Alice Green (see patients.txt for info).
+- Assign her to room 210 (available).
+- Confirm admission.
+
+2. Discharge Existing Patient
+----------------------------
+- Use the "Discharge Patient" feature.
+- Select James Carter (P1002) who is in room 305.
+- Confirm discharge and free up the room.
+
+3. Dispense Prescribed Medication
+---------------------------------
+- Use the "Dispense Medication" feature.
+- Select Joe Smith (P1003).
+- Dispense Paracetamol (see prescriptions.txt, RX-1004).
+- Mark prescription as fulfilled.
+
+4. Request Room Cleaning
+------------------------
+- Use the "Request Cleaning" feature.
+- Select room 400 (currently Dirty).
+- Choose "Deep" cleaning.
+- Assign to Marco Rivera (Facilities Technician).
+
+5. Register New Employee
+------------------------
+- Use the "Register Employee" feature.
+- Enter details for Emily Turner (see employees.txt for info).
+- Assign to Medical Services as Receptionist.
+
+Tips:
+- All demo data is pre-populated in the data/ directory.
+- You can view or edit the .txt files for more details.
+- For any scenario, follow the prompts in the application UI.

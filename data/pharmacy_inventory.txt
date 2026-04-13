@@ -1,3 +1,6 @@
 Amoxicillin|15
 Ibuprofen|100
 Heparin|2
+---
+// Demo: Add new medication for demo
+Paracetamol|50
