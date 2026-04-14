@@ -117,6 +117,17 @@ public class Main {
         }
     }
 
+    // Doctor workflow for prescribing medication
+    private static void prescribeMedicationWorkflow() {
+        pharmacyService.prescribeMedication(scanner, patients, () -> dataStoreService.saveData(patients, employees));
+    }
+
+    private static boolean isDoctor(Employee employee) {
+        String department = employee.getDepartment() == null ? "" : employee.getDepartment();
+        String role = employee.getRole() == null ? "" : employee.getRole();
+        return department.equalsIgnoreCase("Medical Services") || role.toLowerCase().contains("doctor") || role.toLowerCase().contains("physician") || role.toLowerCase().contains("surgeon");
+    }
+
     private static void employeeLogin() {
         System.out.print("\033[H\033[2J\033[3J");
         System.out.flush();
@@ -131,14 +142,15 @@ public class Main {
 
         for (int i = 0; i < employees.size(); i++) {
             Employee e = employees.get(i);
-            System.out.println("  " + (i + 1) + ". " + e.getName()
+            System.out.println("  [" + (i + 1) + "] " + e.getName()
                     + ", ID: " + e.getEmployeeId()
                     + ", Department: " + e.getDepartment()
                     + ", Role: " + e.getRole());
         }
 
-        System.out.print("\n  Select employee number: ");
+        System.out.print("\n  Select employee number (or 'q' to return): ");
         String selection = scanner.nextLine().trim();
+        if (selection.equalsIgnoreCase("q")) return;
 
         try {
             int index = Integer.parseInt(selection) - 1;
@@ -151,8 +163,9 @@ public class Main {
                 boolean pharmacist = isPharmacist(selected);
                 boolean nurse = isNurse(selected);
                 boolean facilities = isFacilitiesManagement(selected);
+                boolean doctor = isDoctor(selected);
 
-                if (!pharmacist && !nurse && !facilities) {
+                if (!pharmacist && !nurse && !facilities && !doctor) {
                     System.out.println("\n  Press Enter to return to menu...");
                     scanner.nextLine();
                     return;
@@ -161,16 +174,25 @@ public class Main {
                 while (true) {
                     System.out.println();
                     int optNum = 1;
-                    if (pharmacist)  System.out.println("  [" + optNum++ + "] Dispense prescribed medication");
-                    if (nurse)       System.out.println("  [" + optNum++ + "] Request room cleaning");
-                    if (facilities)  System.out.println("  [" + optNum++ + "] Process cleaning queue");
+                    if (doctor)     System.out.println("  [" + optNum++ + "] Prescribe medication");
+                    if (pharmacist) System.out.println("  [" + optNum++ + "] Dispense prescribed medication");
+                    if (nurse)      System.out.println("  [" + optNum++ + "] Request room cleaning");
+                    if (facilities) System.out.println("  [" + optNum++ + "] Process cleaning queue");
                     System.out.println("  [" + optNum + "] Return to main menu");
-                    System.out.print("\n  Select option: ");
+                    System.out.print("\n  Select option (or 'q' to return): ");
                     String empChoice = scanner.nextLine().trim();
+                    if (empChoice.equalsIgnoreCase("q")) return;
 
                     int opt = 1;
                     boolean handled = false;
-                    if (pharmacist) {
+                    if (doctor) {
+                        if (String.valueOf(opt).equals(empChoice)) {
+                            prescribeMedicationWorkflow();
+                            handled = true;
+                        }
+                        opt++;
+                    }
+                    if (!handled && pharmacist) {
                         if (String.valueOf(opt).equals(empChoice)) {
                             pharmacyService.dispensePrescribedMedication(scanner, patients);
                             handled = true;

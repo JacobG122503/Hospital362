@@ -18,8 +18,9 @@ public class PersonCreationService {
         System.out.println("\n  === Create a New Person ===\n");
         System.out.println("  [1] New Patient");
         System.out.println("  [2] New Employee");
-        System.out.print("\n  Select type: ");
+        System.out.print("\n  Select type (or 'q' to return): ");
         String type = scanner.nextLine().trim();
+        if (type.equalsIgnoreCase("q")) return;
 
         System.out.print("  Name: ");
         String name = scanner.nextLine().trim();

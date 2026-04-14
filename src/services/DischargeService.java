@@ -45,10 +45,12 @@ public class DischargeService {
             System.out.println("\n  [" + (i + 1) + "] " + matches.get(i).toString());
         }
 
-        System.out.print("\n  Select patient number: ");
+        System.out.print("\n  Select patient number (or 'q' to return): ");
+        String pChoice = scanner.nextLine().trim();
+        if (pChoice.equalsIgnoreCase("q")) return;
         int index;
         try {
-            index = Integer.parseInt(scanner.nextLine().trim()) - 1;
+            index = Integer.parseInt(pChoice) - 1;
         } catch (NumberFormatException e) {
             System.out.println("\n  Invalid selection.");
             pause(scanner);
@@ -67,8 +69,9 @@ public class DischargeService {
         System.out.println("\n  Discharge Authorization:");
         System.out.println("  [1] Doctor has authorized discharge");
         System.out.println("  [2] Patient signed Refusal of Treatment form");
-        System.out.print("\n  Select authorization type: ");
+        System.out.print("\n  Select authorization type (or 'q' to return): ");
         String authChoice = scanner.nextLine().trim();
+        if (authChoice.equalsIgnoreCase("q")) return;
 
         if ("1".equals(authChoice)) {
             System.out.println("\n  Discharge authorization confirmed.");

@@ -39,8 +39,11 @@ public class DataStoreService {
                 for (int i = 1; i < lines.size(); i++) { // skip header
                     String line = lines.get(i);
                     if (line.isBlank()) continue;
-                    String[] p = parseCsvLine(line, 12);
-                    if (p.length == 12) {
+                    String[] p = parseCsvLine(line, 14);
+                    if (p.length >= 12) {
+                        // Backward compatible: if no allergies/meds columns, use empty
+                        String allergies = p.length > 12 ? p[12] : "";
+                        String activeMeds = p.length > 13 ? p[13] : "";
                         patients.add(new Patient(
                             p[0],
                             Integer.parseInt(p[1]),
@@ -53,7 +56,9 @@ public class DataStoreService {
                             p[8],
                             p[9],
                             p[10],
-                            p[11]
+                            p[11],
+                            allergies,
+                            activeMeds
                         ));
                     }
                 }
@@ -90,21 +95,25 @@ public class DataStoreService {
         ArrayList<String> patientLines = new ArrayList<>();
         ArrayList<String> employeeLines = new ArrayList<>();
 
-        patientLines.add("Name,Age,Gender,Phone,Address,PatientId,Diagnosis,Room,AdmissionDate,InsuranceProvider,Status,DischargeDate");
+        patientLines.add("Name,Age,Gender,Phone,Address,PatientId,Diagnosis,Room,AdmissionDate,InsuranceProvider,Status,DischargeDate,Allergies,ActiveMedications");
         for (Patient p : patients) {
+            String allergies = p.getAllergies() == null ? "" : String.join(";", p.getAllergies());
+            String activeMeds = p.getActiveMedications() == null ? "" : String.join(";", p.getActiveMedications());
             patientLines.add(String.join(",",
-                    escapeCsv(p.getName()),
-                    Integer.toString(p.getAge()),
-                    escapeCsv(p.getGender()),
-                    escapeCsv(p.getPhoneNumber()),
-                    escapeCsv(p.getAddress()),
-                    escapeCsv(p.getPatientId()),
-                    escapeCsv(p.getDiagnosis()),
-                    escapeCsv(p.getRoomNumber()),
-                    escapeCsv(p.getAdmissionDate()),
-                    escapeCsv(p.getInsuranceProvider()),
-                    escapeCsv(p.getStatus()),
-                    escapeCsv(p.getDischargeDate())
+                escapeCsv(p.getName()),
+                Integer.toString(p.getAge()),
+                escapeCsv(p.getGender()),
+                escapeCsv(p.getPhoneNumber()),
+                escapeCsv(p.getAddress()),
+                escapeCsv(p.getPatientId()),
+                escapeCsv(p.getDiagnosis()),
+                escapeCsv(p.getRoomNumber()),
+                escapeCsv(p.getAdmissionDate()),
+                escapeCsv(p.getInsuranceProvider()),
+                escapeCsv(p.getStatus()),
+                escapeCsv(p.getDischargeDate()),
+                escapeCsv(allergies),
+                escapeCsv(activeMeds)
             ));
         }
 

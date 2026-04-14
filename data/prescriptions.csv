@@ -1,2 +1,4 @@
 PrescriptionId,PatientId,PatientName,MedicationName,Dosage,RequiredQuantity,Status,ExpiryDate
 RX-1002,P1002,James Carter,Heparin,"5,000 units",5,pending,2026-04-20
+RX1776183332924,P1002,James Carter,Ibuprofen,"8000mg, Oral, daily for 30 days",8000,pending,2026-05-14
+RX1776186586637,P1001,Maria Lopez,Heparin,"500, Oral, Daily for 7 days",3,fulfilled,2026-05-14

@@ -22,8 +22,9 @@ public class PatientsService {
         System.out.println("  [2] View All Patients");
         System.out.println("  [3] Search Patient");
         System.out.println("  [4] Discharge Patient");
-        System.out.print("\n  Select type: ");
+        System.out.print("\n  Select type (or 'q' to return): ");
         String type = scanner.nextLine().trim();
+        if (type.equalsIgnoreCase("q")) return;
 
         if(type.equals(("1")))
         {
@@ -65,7 +66,7 @@ public class PatientsService {
             } else {
                 for (int i = 0; i < patients.size(); i++) {
                     Patient p = patients.get(i);
-                        System.out.println("  " + (i + 1) + ". " + p.getName()
+                        System.out.println("  [" + (i + 1) + "] " + p.getName()
                             + ", ID: " + p.getPatientId()
                             + ", Room: " + p.getRoomNumber()
                             + ", Diagnosis: " + p.getDiagnosis());
