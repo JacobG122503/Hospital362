@@ -194,8 +194,9 @@ public class RoomService {
                     + "  (Status: " + r.getStatus() + ")");
         }
 
-        System.out.print("\n  Select room number: ");
+        System.out.print("\n  Select room number (or 'q' to return): ");
         String roomInput = scanner.nextLine().trim();
+        if (roomInput.equalsIgnoreCase("q")) return;
         int roomIndex;
         try {
             roomIndex = Integer.parseInt(roomInput) - 1;
@@ -252,8 +253,9 @@ public class RoomService {
         for (int i = 0; i < types.length; i++) {
             System.out.println("  [" + (i + 1) + "] " + types[i]);
         }
-        System.out.print("\n  Select cleaning type: ");
+        System.out.print("\n  Select cleaning type (or 'q' to return): ");
         String typeInput = scanner.nextLine().trim();
+        if (typeInput.equalsIgnoreCase("q")) return;
         int typeIndex;
         try {
             typeIndex = Integer.parseInt(typeInput) - 1;
@@ -285,8 +287,9 @@ public class RoomService {
             for (int i = 0; i < materials.length; i++) {
                 System.out.println("  [" + (i + 1) + "] " + materials[i]);
             }
-            System.out.print("\n  Select material: ");
+            System.out.print("\n  Select material (or 'q' to return): ");
             String matInput = scanner.nextLine().trim();
+            if (matInput.equalsIgnoreCase("q")) return;
             int matIndex;
             try {
                 matIndex = Integer.parseInt(matInput) - 1;
@@ -347,13 +350,14 @@ public class RoomService {
 
             List<CleaningRequest> pending = new ArrayList<>(cleaningQueue);
             for (int i = 0; i < pending.size(); i++) {
-                System.out.println("  " + (i + 1) + ". " + pending.get(i));
+                System.out.println("  [" + (i + 1) + "] " + pending.get(i));
             }
 
             System.out.println("\n  [1] Process next request");
             System.out.println("  [2] Return to main menu");
-            System.out.print("\n  Select option: ");
+            System.out.print("\n  Select option (or 'q' to return): ");
             String choice = scanner.nextLine().trim();
+            if (choice.equalsIgnoreCase("q")) return;
 
             if ("1".equals(choice)) {
                 CleaningRequest completed = processNextRequest();
@@ -407,4 +411,7 @@ public class RoomService {
         return result.toArray(new String[0]);
     }
 }
+
+
+
 

@@ -55,12 +55,14 @@ public class PharmacyService {
 
         System.out.println("  Select Patient:");
         for (int i = 0; i < admittedPatients.size(); i++) {
-            System.out.println("  " + (i + 1) + ". " + admittedPatients.get(i).getName() + " (ID: " + admittedPatients.get(i).getPatientId() + ")");
+            System.out.println("  [" + (i + 1) + "] " + admittedPatients.get(i).getName() + " (ID: " + admittedPatients.get(i).getPatientId() + ")");
         }
-        System.out.print("  Choice: ");
+        System.out.print("  Choice (or 'q' to return): ");
+        String pChoice = scanner.nextLine().trim();
+        if (pChoice.equalsIgnoreCase("q")) return;
         int pIndex;
         try {
-            pIndex = Integer.parseInt(scanner.nextLine().trim()) - 1;
+            pIndex = Integer.parseInt(pChoice) - 1;
         } catch (NumberFormatException e) {
             System.out.println("  Invalid selection.");
             System.out.println("  Press Enter to return...");
@@ -118,12 +120,14 @@ public class PharmacyService {
                     return;
                 }
                 for (int i = 0; i < alternatives.size(); i++) {
-                    System.out.println("  " + (i + 1) + ". " + alternatives.get(i));
+                    System.out.println("  [" + (i + 1) + "] " + alternatives.get(i));
                 }
-                System.out.print("  Select alternative number (or 0 to search again): ");
+                System.out.print("  Select alternative number (or 0 to search again, 'q' to return): ");
+                String aChoice = scanner.nextLine().trim();
+                if (aChoice.equalsIgnoreCase("q")) return;
                 int aIndex;
                 try {
-                    aIndex = Integer.parseInt(scanner.nextLine().trim()) - 1;
+                    aIndex = Integer.parseInt(aChoice) - 1;
                 } catch (NumberFormatException e) { continue; }
                 if (aIndex < 0 || aIndex >= alternatives.size()) continue;
                 foundMedication = alternatives.get(aIndex);
@@ -229,15 +233,16 @@ public class PharmacyService {
         System.out.println("  Pending Prescriptions:");
         for (int i = 0; i < pending.size(); i++) {
             Prescription p = pending.get(i);
-            System.out.println("  " + (i + 1) + ". Rx " + p.prescriptionId
+            System.out.println("  [" + (i + 1) + "] Rx " + p.prescriptionId
                 + ", Patient: " + p.patientName
                 + ", Medication: " + p.medicationName
                 + ", Qty: " + p.requiredQuantity
                 + ", Expires: " + p.expiryDate);
         }
 
-        System.out.print("\n  Select prescription number to process: ");
+        System.out.print("\n  Select prescription number to process (or 'q' to return): ");
         String selection = scanner.nextLine().trim();
+        if (selection.equalsIgnoreCase("q")) return;
 
         int index;
         try {

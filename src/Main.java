@@ -142,14 +142,15 @@ public class Main {
 
         for (int i = 0; i < employees.size(); i++) {
             Employee e = employees.get(i);
-            System.out.println("  " + (i + 1) + ". " + e.getName()
+            System.out.println("  [" + (i + 1) + "] " + e.getName()
                     + ", ID: " + e.getEmployeeId()
                     + ", Department: " + e.getDepartment()
                     + ", Role: " + e.getRole());
         }
 
-        System.out.print("\n  Select employee number: ");
+        System.out.print("\n  Select employee number (or 'q' to return): ");
         String selection = scanner.nextLine().trim();
+        if (selection.equalsIgnoreCase("q")) return;
 
         try {
             int index = Integer.parseInt(selection) - 1;
@@ -178,8 +179,9 @@ public class Main {
                     if (nurse)      System.out.println("  [" + optNum++ + "] Request room cleaning");
                     if (facilities) System.out.println("  [" + optNum++ + "] Process cleaning queue");
                     System.out.println("  [" + optNum + "] Return to main menu");
-                    System.out.print("\n  Select option: ");
+                    System.out.print("\n  Select option (or 'q' to return): ");
                     String empChoice = scanner.nextLine().trim();
+                    if (empChoice.equalsIgnoreCase("q")) return;
 
                     int opt = 1;
                     boolean handled = false;
