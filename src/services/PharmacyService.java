@@ -34,6 +34,159 @@ public class PharmacyService {
         }
     }
 
+    public void prescribeMedication(Scanner scanner, List<Patient> patients, Runnable savePatientsCallback) {
+        System.out.print("\033[H\033[2J\033[3J");
+        System.out.flush();
+        System.out.println("\n  === Prescribe Medication (Doctor) ===\n");
+
+        List<Patient> admittedPatients = new ArrayList<>();
+        for (Patient p : patients) {
+            if ("admitted".equalsIgnoreCase(p.getStatus())) {
+                admittedPatients.add(p);
+            }
+        }
+
+        if (admittedPatients.isEmpty()) {
+            System.out.println("  No admitted patients.");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+
+        System.out.println("  Select Patient:");
+        for (int i = 0; i < admittedPatients.size(); i++) {
+            System.out.println("  " + (i + 1) + ". " + admittedPatients.get(i).getName() + " (ID: " + admittedPatients.get(i).getPatientId() + ")");
+        }
+        System.out.print("  Choice: ");
+        int pIndex;
+        try {
+            pIndex = Integer.parseInt(scanner.nextLine().trim()) - 1;
+        } catch (NumberFormatException e) {
+            System.out.println("  Invalid selection.");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+
+        if (pIndex < 0 || pIndex >= admittedPatients.size()) {
+            System.out.println("  Invalid selection.");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+
+        Patient selectedPatient = admittedPatients.get(pIndex);
+
+        System.out.println("\n  === Medical Profile ===");
+        System.out.println("  Name: " + selectedPatient.getName());
+        System.out.println("  ID: " + selectedPatient.getPatientId());
+        System.out.println("  Diagnosis: " + selectedPatient.getDiagnosis());
+        System.out.println("  Allergies: " + (selectedPatient.getAllergies().isEmpty() ? "None" : String.join(", ", selectedPatient.getAllergies())));
+        System.out.println("  Active Meds: " + (selectedPatient.getActiveMedications().isEmpty() ? "None" : String.join(", ", selectedPatient.getActiveMedications())));
+
+        Map<String, Integer> inventory = loadInventory();
+        List<Prescription> prescriptions = loadPrescriptions();
+
+        while (true) {
+            System.out.println("\n  Available Medications:");
+            for (String med : inventory.keySet()) {
+                System.out.println("  - " + med);
+            }
+            System.out.print("\n  Type medication to prescribe (or 'cancel'): ");
+            String selectedMedication = scanner.nextLine().trim();
+            if (selectedMedication.equalsIgnoreCase("cancel")) return;
+
+            String foundMedication = null;
+            for (String med : inventory.keySet()) {
+                if (med.equalsIgnoreCase(selectedMedication)) {
+                    foundMedication = med;
+                    break;
+                }
+            }
+
+            if (foundMedication == null || inventory.getOrDefault(foundMedication, 0) <= 0) {
+                System.out.println("\n  [ALERT] Medication '" + selectedMedication + "' is OUT OF STOCK or not found.");
+                System.out.println("  Available equivalent/alternative medications:");
+                List<String> alternatives = new ArrayList<>();
+                for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
+                    if (entry.getValue() > 0) alternatives.add(entry.getKey());
+                }
+                if (alternatives.isEmpty()) {
+                    System.out.println("  No medications available. Cannot prescribe.");
+                    System.out.println("  Press Enter to return...");
+                    scanner.nextLine();
+                    return;
+                }
+                for (int i = 0; i < alternatives.size(); i++) {
+                    System.out.println("  " + (i + 1) + ". " + alternatives.get(i));
+                }
+                System.out.print("  Select alternative number (or 0 to search again): ");
+                int aIndex;
+                try {
+                    aIndex = Integer.parseInt(scanner.nextLine().trim()) - 1;
+                } catch (NumberFormatException e) { continue; }
+                if (aIndex < 0 || aIndex >= alternatives.size()) continue;
+                foundMedication = alternatives.get(aIndex);
+                System.out.println("  Selected alternative: " + foundMedication);
+            }
+
+            System.out.print("  Dosage (e.g., 500mg): "); String dosage = scanner.nextLine().trim();
+            System.out.print("  Route (e.g., Oral): "); String route = scanner.nextLine().trim();
+            System.out.print("  Frequency (e.g., Twice daily): "); String freq = scanner.nextLine().trim();
+            System.out.print("  Duration (e.g., 7 days): "); String duration = scanner.nextLine().trim();
+            System.out.print("  Quantity to Dispense: ");
+            int qty;
+            try {
+                qty = Integer.parseInt(scanner.nextLine().trim());
+            } catch (Exception e) {
+                System.out.println("  Invalid quantity.");
+                continue;
+            }
+
+            boolean conflict = false;
+            for (String allergy : selectedPatient.getAllergies()) {
+                if (allergy.equalsIgnoreCase(foundMedication)) conflict = true;
+            }
+            for (String activeMed : selectedPatient.getActiveMedications()) {
+                if (activeMed.equalsIgnoreCase(foundMedication)) conflict = true;
+            }
+
+            if (conflict) {
+                System.out.println("\n  [CRITICAL WARNING] DANGEROUS CONFLICT DETECTED!");
+                System.out.println("  Medication conflicts with allergies or active medications.");
+                System.out.print("  Press Enter to acknowledge and abort draft...");
+                scanner.nextLine();
+                continue;
+            }
+
+            System.out.println("\n  === Review Prescription ===");
+            String inst = dosage + ", " + route + ", " + freq + " for " + duration;
+            System.out.println("  Medication: " + foundMedication);
+            System.out.println("  Instructions: " + inst);
+            System.out.println("  Quantity to Dispense: " + qty);
+            System.out.print("  Submit? (y/n): ");
+            if (scanner.nextLine().trim().equalsIgnoreCase("y")) {
+                List<String> meds = new ArrayList<>(selectedPatient.getActiveMedications());
+                meds.add(foundMedication);
+                selectedPatient.setActiveMedications(meds);
+                savePatientsCallback.run();
+
+                String rxId = "RX" + System.currentTimeMillis();
+                Prescription newRx = new Prescription(rxId, selectedPatient.getPatientId(), selectedPatient.getName(), foundMedication, inst, qty, "pending", LocalDate.now().plusDays(30));
+                prescriptions.add(newRx);
+                savePrescriptions(prescriptions);
+
+                System.out.println("\n  [SUCCESS] Prescription submitted and routed to Pharmacy.");
+                System.out.println("  Medical file updated.");
+                System.out.print("  Press Enter to return...");
+                scanner.nextLine();
+                return;
+            } else {
+                System.out.println("  Draft aborted.");
+            }
+        }
+    }
+
     public void dispensePrescribedMedication(Scanner scanner, List<Patient> admittedPatients) {
         System.out.print("\033[H\033[2J\033[3J");
         System.out.flush();
@@ -60,7 +213,7 @@ public class PharmacyService {
                 continue;
             }
             int available = inventory.getOrDefault(p.medicationName, 0);
-            if (available < p.requiredQuantity) {
+            if (available <= 0) {
                 continue;
             }
             pending.add(p);
