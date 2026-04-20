@@ -176,6 +176,7 @@ public class Main {
                     int optNum = 1;
                     if (doctor)     System.out.println("  [" + optNum++ + "] Prescribe medication");
                     if (pharmacist) System.out.println("  [" + optNum++ + "] Dispense prescribed medication");
+                    if (pharmacist) System.out.println("  [" + optNum++ + "] Audit medication inventory");
                     if (nurse)      System.out.println("  [" + optNum++ + "] View rooms");
                     if (facilities) System.out.println("  [" + optNum++ + "] Process cleaning queue");
                     if (facilities) System.out.println("  [" + optNum++ + "] Manage rooms & equipment");
@@ -196,6 +197,13 @@ public class Main {
                     if (!handled && pharmacist) {
                         if (String.valueOf(opt).equals(empChoice)) {
                             pharmacyService.dispensePrescribedMedication(scanner, patients);
+                            handled = true;
+                        }
+                        opt++;
+                    }
+                    if (!handled && pharmacist) {
+                        if (String.valueOf(opt).equals(empChoice)) {
+                            pharmacyService.auditMedicationInventory(scanner);
                             handled = true;
                         }
                         opt++;

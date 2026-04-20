@@ -1,4 +1,4 @@
-Medication,Quantity
-Amoxicillin,15
-Ibuprofen,100
-Heparin,7
+Medication,Quantity,IdealQuantity
+Amoxicillin,15,20
+Heparin,7,10
+Ibuprofen,100,80
