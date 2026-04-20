@@ -12,7 +12,9 @@ import java.util.Queue;
 import java.util.Scanner;
 
 import objects.CleaningRequest;
+import objects.Equipment;
 import objects.Room;
+import objects.Patient;
 import types.CleaningType;
 
 public class RoomService {
@@ -21,11 +23,13 @@ public class RoomService {
 
     private final Path roomsPath;
     private final Path cleaningRequestsPath;
+    private final Path equipmentPath;
     private final Queue<CleaningRequest> cleaningQueue = new LinkedList<>();
 
     public RoomService(Path dataDir) {
         this.roomsPath = dataDir.resolve("rooms.csv");
         this.cleaningRequestsPath = dataDir.resolve("cleaning_requests.csv");
+        this.equipmentPath = dataDir.resolve("equipment.csv");
     }
 
     public void initializeFile() {
@@ -35,6 +39,9 @@ public class RoomService {
             }
             if (!Files.exists(cleaningRequestsPath)) {
                 Files.createFile(cleaningRequestsPath);
+            }
+            if (!Files.exists(equipmentPath)) {
+                Files.createFile(equipmentPath);
             }
         } catch (IOException e) {
             System.out.println("Error initializing room files: " + e.getMessage());
@@ -169,15 +176,111 @@ public class RoomService {
         return req;
     }
 
+    /** Load all equipment from equipment.csv. */
+    public List<Equipment> loadEquipment() {
+        List<Equipment> equipment = new ArrayList<>();
+        try {
+            if (!Files.exists(equipmentPath)) return equipment;
+            List<String> lines = Files.readAllLines(equipmentPath);
+            for (int i = 1; i < lines.size(); i++) {
+                String line = lines.get(i);
+                if (line.isBlank()) continue;
+                String[] parts = parseCsvLine(line, 3);
+                if (parts.length >= 2) {
+                    String roomNum = parts[0].trim();
+                    String name = parts[1].trim();
+                    boolean isWorking = parts.length < 3 || "true".equalsIgnoreCase(parts[2].trim());
+                    Equipment eq = new Equipment(roomNum, name);
+                    eq.setIsWorking(isWorking);
+                    equipment.add(eq);
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Error loading equipment: " + e.getMessage());
+        }
+        return equipment;
+    }
+
+    /** Persist the equipment list to equipment.csv. */
+    private void saveEquipment(List<Equipment> equipment) {
+        List<String> lines = new ArrayList<>();
+        lines.add("RoomNum,Name,IsWorking");
+        for (Equipment eq : equipment) {
+            lines.add(String.join(",",
+                    escapeCsv(eq.getAssociatedRoomNum()),
+                    escapeCsv(eq.getName()),
+                    Boolean.toString(eq.getIsWorking())
+            ));
+        }
+        try {
+            Files.write(equipmentPath, lines);
+        } catch (IOException e) {
+            System.out.println("Error saving equipment: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Create a new room with "Available" status.
+     * Returns false if a room with that number already exists.
+     */
+    public boolean createRoom(String roomNumber) {
+        List<Room> rooms = loadRooms();
+        for (Room r : rooms) {
+            if (r.getRoomNum().equalsIgnoreCase(roomNumber)) return false;
+        }
+        rooms.add(new Room(roomNumber, "Available"));
+        saveRooms(rooms);
+        return true;
+    }
+
+    /**
+     * Delete a room and all its equipment.
+     * Returns false if the room does not exist.
+     */
+    public boolean deleteRoom(String roomNumber) {
+        List<Room> rooms = loadRooms();
+        boolean removed = rooms.removeIf(r -> r.getRoomNum().equalsIgnoreCase(roomNumber));
+        if (removed) {
+            saveRooms(rooms);
+            List<Equipment> equipment = loadEquipment();
+            equipment.removeIf(eq -> eq.getAssociatedRoomNum().equalsIgnoreCase(roomNumber));
+            saveEquipment(equipment);
+        }
+        return removed;
+    }
+
+    /** Add a piece of equipment to a room. */
+    public void addEquipmentToRoom(String roomNumber, String equipmentName) {
+        List<Equipment> equipment = loadEquipment();
+        equipment.add(new Equipment(roomNumber, equipmentName));
+        saveEquipment(equipment);
+    }
+
+    /**
+     * Remove equipment from a room by its 0-based index within that room's equipment list.
+     * Returns false if the index is out of range.
+     */
+    public boolean removeEquipmentFromRoom(String roomNumber, int index) {
+        List<Equipment> all = loadEquipment();
+        List<Equipment> roomEquipment = new ArrayList<>();
+        for (Equipment eq : all) {
+            if (eq.getAssociatedRoomNum().equalsIgnoreCase(roomNumber)) roomEquipment.add(eq);
+        }
+        if (index < 0 || index >= roomEquipment.size()) return false;
+        all.remove(roomEquipment.get(index));
+        saveEquipment(all);
+        return true;
+    }
+
     // ------------------------------------------------------------------ //
     //  Interactive menu methods                                            //
     // ------------------------------------------------------------------ //
 
     /** Menu shown to a nurse to submit a room cleaning request. */
-    public void showNurseMenu(Scanner scanner, String nurseName) {
+    public void showNurseMenu(Scanner scanner, String nurseName, List<Patient> patients, Runnable onSave) {
         System.out.print("\033[H\033[2J\033[3J");
         System.out.flush();
-        System.out.println("\n  === Request Room Cleaning ===\n");
+        System.out.println("\n  === Rooms ===\n");
 
         List<Room> rooms = loadRooms();
         if (rooms.isEmpty()) {
@@ -214,10 +317,69 @@ public class RoomService {
         }
         Room selectedRoomObj = rooms.get(roomIndex);
         String selectedRoom = selectedRoomObj.getRoomNum();
+        System.out.print("\033[H\033[2J\033[3J");
+        System.out.flush();
+        System.out.println("\n  === Room " + selectedRoom + " ===\n");
+        System.out.println("  [1] Request room cleaning");
+        System.out.println("  [2] Request equipment maintenance");
+        // Find patient in this room
+        Patient roomPatient = null;
+        for (Patient p : patients) {
+            if (selectedRoom.equalsIgnoreCase(p.getRoomNumber()) && !"discharged".equalsIgnoreCase(p.getStatus())) {
+                roomPatient = p;
+                break;
+            }
+        }
+        if (roomPatient != null) {
+            System.out.println("  [3] Record patient vitals");
+        }
+        System.out.print("\n  Select an option (or 'q' to return): ");
+        String roomOption = scanner.nextLine().trim();
+        if (roomOption.equalsIgnoreCase("q")) return;
 
+        if ("1".equals(roomOption)) {
+            requestRoomCleaning(scanner, nurseName, rooms, selectedRoomObj, selectedRoom);
+        } else if ("2".equals(roomOption)) {
+            requestEquipmentMaintenance(scanner, nurseName, selectedRoom);
+        } else if ("3".equals(roomOption) && roomPatient != null) {
+            recordVitalsForRoomPatient(scanner, roomPatient, onSave);
+        } else {
+            System.out.println("\n  Invalid selection.");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+        }
+
+    }
+
+    // Helper for nurse to record vitals for a patient in a room
+    private void recordVitalsForRoomPatient(Scanner scanner, Patient patient, Runnable onSave) {
+        System.out.println("\n  === Record Vitals for " + patient.getName() + " (Room " + patient.getRoomNumber() + ") ===\n");
+        try {
+            System.out.print("  Temperature (C): ");
+            double temp = Double.parseDouble(scanner.nextLine().trim());
+            System.out.print("  Blood Pressure (e.g., 120/80): ");
+            String bp = scanner.nextLine().trim();
+            System.out.print("  Heart Rate (bpm): ");
+            int hr = Integer.parseInt(scanner.nextLine().trim());
+            System.out.print("  Notes (optional): ");
+            String notes = scanner.nextLine().trim();
+            objects.PatientVitals vitals = new objects.PatientVitals(java.time.LocalDateTime.now(), temp, bp, hr, notes);
+            patient.addVitals(vitals);
+            onSave.run();
+            System.out.println("  Vitals recorded for " + patient.getName() + ".");
+        } catch (Exception e) {
+            System.out.println("  Invalid input. Vitals not recorded.");
+        }
+        System.out.println("  Press Enter to return...");
+        scanner.nextLine();
+    }
+
+    private void requestRoomCleaning(Scanner scanner, String nurseName,
+            List<Room> rooms, Room selectedRoomObj, String selectedRoom) {
         // Prevent duplicate pending requests for the same room
         for (CleaningRequest existing : cleaningQueue) {
-            if (existing.getRoomNumber().equalsIgnoreCase(selectedRoom)) {
+            if (existing.getRoomNumber().equalsIgnoreCase(selectedRoom)
+                    && existing.getCleaningType() != CleaningType.MAINTENANCE) {
                 System.out.println("\n  A cleaning request for Room " + selectedRoom
                         + " is already pending.");
                 System.out.println("  Press Enter to return...");
@@ -334,6 +496,73 @@ public class RoomService {
         scanner.nextLine();
     }
 
+    private void requestEquipmentMaintenance(Scanner scanner, String nurseName, String selectedRoom) {
+        List<Equipment> all = loadEquipment();
+        List<Equipment> roomEquipment = new ArrayList<>();
+        for (Equipment eq : all) {
+            if (eq.getAssociatedRoomNum().equalsIgnoreCase(selectedRoom)) roomEquipment.add(eq);
+        }
+
+        if (roomEquipment.isEmpty()) {
+            System.out.println("\n  No equipment registered in Room " + selectedRoom + ".");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+
+        System.out.println("\n  Equipment in Room " + selectedRoom + ":");
+        for (int i = 0; i < roomEquipment.size(); i++) {
+            Equipment eq = roomEquipment.get(i);
+            System.out.println("  [" + (i + 1) + "] " + eq.getName()
+                    + "  (Working: " + eq.getIsWorking() + ")");
+        }
+        System.out.print("\n  Select equipment (or 'q' to return): ");
+        String eqInput = scanner.nextLine().trim();
+        if (eqInput.equalsIgnoreCase("q")) return;
+
+        int eqIndex;
+        try {
+            eqIndex = Integer.parseInt(eqInput) - 1;
+        } catch (NumberFormatException e) {
+            System.out.println("\n  Invalid selection.");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+        if (eqIndex < 0 || eqIndex >= roomEquipment.size()) {
+            System.out.println("\n  Invalid selection.");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+
+        Equipment selectedEq = roomEquipment.get(eqIndex);
+        System.out.print("\n  Describe the issue with \"" + selectedEq.getName() + "\": ");
+        String issue = scanner.nextLine().trim();
+        if (issue.isBlank()) {
+            System.out.println("\n  A description is required. Request cancelled.");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+
+        // Mark equipment as not working
+        for (Equipment eq : all) {
+            if (eq.getAssociatedRoomNum().equalsIgnoreCase(selectedRoom)
+                    && eq.getName().equals(selectedEq.getName())) {
+                eq.setIsWorking(false);
+                break;
+            }
+        }
+        saveEquipment(all);
+
+        String details = "Equipment: " + selectedEq.getName() + " | Issue: " + issue;
+        requestCleaning(selectedRoom, CleaningType.MAINTENANCE, nurseName, details);
+
+        System.out.println("  Press Enter to return...");
+        scanner.nextLine();
+    }
+
     /** Menu shown to a Facilities Management employee to process the cleaning queue. */
     public void showFacilitiesMenu(Scanner scanner) {
         while (true) {
@@ -373,6 +602,185 @@ public class RoomService {
         }
     }
 
+    /** Menu shown to a Facilities Management employee to manage rooms and equipment. */
+    public void showRoomManagementMenu(Scanner scanner) {
+        while (true) {
+            System.out.print("\033[H\033[2J\033[3J");
+            System.out.flush();
+            System.out.println("\n  === Room Management ===\n");
+
+            List<Room> rooms = loadRooms();
+            if (rooms.isEmpty()) {
+                System.out.println("  No rooms registered.");
+            } else {
+                for (Room r : rooms) {
+                    System.out.println("  Room " + r.getRoomNum() + "  (Status: " + r.getStatus() + ")");
+                }
+            }
+
+            System.out.println("\n  [1] Create room");
+            System.out.println("  [2] Delete room");
+            System.out.println("  [3] Manage equipment");
+            System.out.println("  [q] Return");
+            System.out.print("\n  Select option: ");
+            String choice = scanner.nextLine().trim();
+            if (choice.equalsIgnoreCase("q")) return;
+
+            switch (choice) {
+                case "1": {
+                    System.out.print("\n  Enter new room number: ");
+                    String roomNum = scanner.nextLine().trim();
+                    if (!roomNum.isBlank()) {
+                        if (createRoom(roomNum)) {
+                            System.out.println("\n  Room " + roomNum + " created successfully.");
+                        } else {
+                            System.out.println("\n  Room " + roomNum + " already exists.");
+                        }
+                        System.out.println("  Press Enter to continue...");
+                        scanner.nextLine();
+                    }
+                    break;
+                }
+                case "2": {
+                    if (rooms.isEmpty()) break;
+                    System.out.println("\n  Select room to delete:");
+                    for (int i = 0; i < rooms.size(); i++) {
+                        System.out.println("  [" + (i + 1) + "] Room " + rooms.get(i).getRoomNum()
+                                + "  (" + rooms.get(i).getStatus() + ")");
+                    }
+                    System.out.print("\n  Select room (or 'q' to cancel): ");
+                    String sel = scanner.nextLine().trim();
+                    if (!sel.equalsIgnoreCase("q")) {
+                        try {
+                            int idx = Integer.parseInt(sel) - 1;
+                            if (idx >= 0 && idx < rooms.size()) {
+                                String roomNum = rooms.get(idx).getRoomNum();
+                                System.out.print("  Delete Room " + roomNum
+                                        + "? This also removes all its equipment. (y/n): ");
+                                if (scanner.nextLine().trim().equalsIgnoreCase("y")) {
+                                    deleteRoom(roomNum);
+                                    System.out.println("\n  Room " + roomNum + " deleted.");
+                                } else {
+                                    System.out.println("\n  Cancelled.");
+                                }
+                            } else {
+                                System.out.println("\n  Invalid selection.");
+                            }
+                        } catch (NumberFormatException e) {
+                            System.out.println("\n  Invalid selection.");
+                        }
+                    }
+                    System.out.println("  Press Enter to continue...");
+                    scanner.nextLine();
+                    break;
+                }
+                case "3": {
+                    showEquipmentMenu(scanner, rooms);
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
+    }
+
+    private void showEquipmentMenu(Scanner scanner, List<Room> rooms) {
+        if (rooms.isEmpty()) {
+            System.out.println("\n  No rooms available. Create a room first.");
+            System.out.println("  Press Enter to continue...");
+            scanner.nextLine();
+            return;
+        }
+
+        System.out.println("\n  Select room to manage equipment:");
+        for (int i = 0; i < rooms.size(); i++) {
+            System.out.println("  [" + (i + 1) + "] Room " + rooms.get(i).getRoomNum()
+                    + "  (" + rooms.get(i).getStatus() + ")");
+        }
+        System.out.print("\n  Select room (or 'q' to return): ");
+        String sel = scanner.nextLine().trim();
+        if (sel.equalsIgnoreCase("q")) return;
+
+        int idx;
+        try {
+            idx = Integer.parseInt(sel) - 1;
+        } catch (NumberFormatException e) {
+            System.out.println("\n  Invalid selection.");
+            System.out.println("  Press Enter to continue...");
+            scanner.nextLine();
+            return;
+        }
+        if (idx < 0 || idx >= rooms.size()) {
+            System.out.println("\n  Invalid selection.");
+            System.out.println("  Press Enter to continue...");
+            scanner.nextLine();
+            return;
+        }
+
+        String roomNumber = rooms.get(idx).getRoomNum();
+
+        while (true) {
+            System.out.print("\033[H\033[2J\033[3J");
+            System.out.flush();
+            System.out.println("\n  === Equipment — Room " + roomNumber + " ===\n");
+
+            List<Equipment> all = loadEquipment();
+            List<Equipment> roomEquipment = new ArrayList<>();
+            for (Equipment eq : all) {
+                if (eq.getAssociatedRoomNum().equalsIgnoreCase(roomNumber)) roomEquipment.add(eq);
+            }
+
+            if (roomEquipment.isEmpty()) {
+                System.out.println("  No equipment in this room.");
+            } else {
+                for (int i = 0; i < roomEquipment.size(); i++) {
+                    Equipment eq = roomEquipment.get(i);
+                    System.out.println("  [" + (i + 1) + "] " + eq.getName()
+                            + "  (Working: " + eq.getIsWorking() + ")");
+                }
+            }
+
+            System.out.println("\n  [1] Add equipment");
+            System.out.println("  [2] Remove equipment");
+            System.out.println("  [q] Return");
+            System.out.print("\n  Select option: ");
+            String choice = scanner.nextLine().trim();
+            if (choice.equalsIgnoreCase("q")) return;
+
+            if ("1".equals(choice)) {
+                System.out.print("\n  Enter equipment name: ");
+                String name = scanner.nextLine().trim();
+                if (!name.isBlank()) {
+                    addEquipmentToRoom(roomNumber, name);
+                    System.out.println("\n  \"" + name + "\" added to Room " + roomNumber + ".");
+                }
+                System.out.println("  Press Enter to continue...");
+                scanner.nextLine();
+            } else if ("2".equals(choice)) {
+                if (roomEquipment.isEmpty()) {
+                    System.out.println("\n  No equipment to remove.");
+                    System.out.println("  Press Enter to continue...");
+                    scanner.nextLine();
+                    continue;
+                }
+                System.out.print("\n  Select equipment to remove: ");
+                String removeStr = scanner.nextLine().trim();
+                try {
+                    int removeIdx = Integer.parseInt(removeStr) - 1;
+                    if (removeEquipmentFromRoom(roomNumber, removeIdx)) {
+                        System.out.println("\n  Equipment removed.");
+                    } else {
+                        System.out.println("\n  Invalid selection.");
+                    }
+                } catch (NumberFormatException e) {
+                    System.out.println("\n  Invalid selection.");
+                }
+                System.out.println("  Press Enter to continue...");
+                scanner.nextLine();
+            }
+        }
+    }
+
     // ------------------------------------------------------------------ //
     //  Pipe-delimited file helpers (same pattern as DataStoreService)     //
     // ------------------------------------------------------------------ //
@@ -392,7 +800,6 @@ public class RoomService {
         List<String> result = new ArrayList<>();
         boolean inQuotes = false;
         StringBuilder sb = new StringBuilder();
-        int col = 0;
         for (int i = 0; i < line.length(); i++) {
             char c = line.charAt(i);
             if (c == '"') {
@@ -400,7 +807,6 @@ public class RoomService {
             } else if (c == ',' && !inQuotes) {
                 result.add(sb.toString().replace("\"\"", "\""));
                 sb.setLength(0);
-                col++;
             } else {
                 sb.append(c);
             }

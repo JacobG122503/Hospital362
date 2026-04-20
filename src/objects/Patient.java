@@ -15,6 +15,8 @@ public class Patient extends Person {
     private List<String> allergies = new ArrayList<>();
     private List<String> activeMedications = new ArrayList<>();
 
+    private List<PatientVitals> vitalsHistory = new ArrayList<>();
+
     public Patient(String name, int age, String gender, String phoneNumber, String address,
                    String patientId, String diagnosis, String roomNumber, String admissionDate,
                    String insuranceProvider) {
@@ -28,6 +30,7 @@ public class Patient extends Person {
         this.dischargeDate = "";
         this.allergies = new ArrayList<>();
         this.activeMedications = new ArrayList<>();
+        this.vitalsHistory = new ArrayList<>();
     }
 
     public Patient(String name, int age, String gender, String phoneNumber, String address,
@@ -44,11 +47,15 @@ public class Patient extends Person {
         this.dischargeDate = dischargeDate;
         this.allergies = allergiesCsv == null || allergiesCsv.isBlank() ? new ArrayList<>() : Arrays.asList(allergiesCsv.split(";"));
         this.activeMedications = activeMedicationsCsv == null || activeMedicationsCsv.isBlank() ? new ArrayList<>() : Arrays.asList(activeMedicationsCsv.split(";"));
+        this.vitalsHistory = new ArrayList<>();
     }
     public List<String> getAllergies() { return allergies; }
     public void setAllergies(List<String> allergies) { this.allergies = allergies; }
     public List<String> getActiveMedications() { return activeMedications; }
     public void setActiveMedications(List<String> meds) { this.activeMedications = meds; }
+
+    public List<PatientVitals> getVitalsHistory() { return vitalsHistory; }
+    public void addVitals(PatientVitals vitals) { this.vitalsHistory.add(vitals); }
 
     public String getPatientId()         { return patientId; }
     public String getDiagnosis()         { return diagnosis; }
@@ -83,6 +90,9 @@ public class Patient extends Person {
         }
         if ("discharged".equalsIgnoreCase(status)) {
             base += ", Discharged: " + dischargeDate;
+        }
+        if (!vitalsHistory.isEmpty()) {
+            base += ", Vitals Records: " + vitalsHistory.size();
         }
         return base;
     }

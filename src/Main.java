@@ -176,8 +176,9 @@ public class Main {
                     int optNum = 1;
                     if (doctor)     System.out.println("  [" + optNum++ + "] Prescribe medication");
                     if (pharmacist) System.out.println("  [" + optNum++ + "] Dispense prescribed medication");
-                    if (nurse)      System.out.println("  [" + optNum++ + "] Request room cleaning");
+                    if (nurse)      System.out.println("  [" + optNum++ + "] View rooms");
                     if (facilities) System.out.println("  [" + optNum++ + "] Process cleaning queue");
+                    if (facilities) System.out.println("  [" + optNum++ + "] Manage rooms & equipment");
                     System.out.println("  [" + optNum + "] Return to main menu");
                     System.out.print("\n  Select option (or 'q' to return): ");
                     String empChoice = scanner.nextLine().trim();
@@ -201,7 +202,12 @@ public class Main {
                     }
                     if (!handled && nurse) {
                         if (String.valueOf(opt).equals(empChoice)) {
-                            roomService.showNurseMenu(scanner, selected.getName());
+                            roomService.showNurseMenu(
+                                    scanner,
+                                    selected.getName(),
+                                    patients,
+                                    () -> dataStoreService.saveData(patients, employees)
+                            );
                             handled = true;
                         }
                         opt++;
@@ -209,6 +215,13 @@ public class Main {
                     if (!handled && facilities) {
                         if (String.valueOf(opt).equals(empChoice)) {
                             roomService.showFacilitiesMenu(scanner);
+                            handled = true;
+                        }
+                        opt++;
+                    }
+                    if (!handled && facilities) {
+                        if (String.valueOf(opt).equals(empChoice)) {
+                            roomService.showRoomManagementMenu(scanner);
                             handled = true;
                         }
                         opt++;
