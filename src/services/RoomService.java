@@ -355,7 +355,7 @@ public class RoomService {
     private void recordVitalsForRoomPatient(Scanner scanner, Patient patient, Runnable onSave) {
         System.out.println("\n  === Record Vitals for " + patient.getName() + " (Room " + patient.getRoomNumber() + ") ===\n");
         try {
-            System.out.print("  Temperature (C): ");
+            System.out.print("  Temperature (F): ");
             double temp = Double.parseDouble(scanner.nextLine().trim());
             System.out.print("  Blood Pressure (e.g., 120/80): ");
             String bp = scanner.nextLine().trim();

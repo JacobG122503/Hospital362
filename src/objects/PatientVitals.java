@@ -26,6 +26,6 @@ public class PatientVitals implements Serializable {
 
     @Override
     public String toString() {
-        return "Vitals @ " + timestamp + ": Temp=" + temperature + "C, BP=" + bloodPressure + ", HR=" + heartRate + (notes.isBlank() ? "" : ", Notes: " + notes);
+        return "Vitals @ " + timestamp + ": Temp=" + temperature + "F, BP=" + bloodPressure + ", HR=" + heartRate + (notes.isBlank() ? "" : ", Notes: " + notes);
     }
 }

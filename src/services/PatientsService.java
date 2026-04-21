@@ -72,6 +72,31 @@ public class PatientsService {
                             + ", Room: " + p.getRoomNumber()
                             + ", Diagnosis: " + p.getDiagnosis());
                 }
+
+                System.out.print("\n  Select patient number to view details (or 'q' to return): ");
+                String selection = scanner.nextLine().trim();
+                if (selection.equalsIgnoreCase("q")) {
+                    return;
+                }
+
+                int selectedIndex;
+                try {
+                    selectedIndex = Integer.parseInt(selection) - 1;
+                } catch (NumberFormatException e) {
+                    System.out.println("\n  Invalid selection.");
+                    System.out.println("  Press Enter to return to menu...");
+                    scanner.nextLine();
+                    return;
+                }
+
+                if (selectedIndex < 0 || selectedIndex >= patients.size()) {
+                    System.out.println("\n  Invalid selection.");
+                    System.out.println("  Press Enter to return to menu...");
+                    scanner.nextLine();
+                    return;
+                }
+
+                showPatientDetails(patients.get(selectedIndex));
             }
         }
         else if(type.equals(("3")))
@@ -134,7 +159,7 @@ public class PatientsService {
         }
         Patient patient = patients.get(idx);
         try {
-            System.out.print("  Temperature (C): ");
+            System.out.print("  Temperature (F): ");
             double temp = Double.parseDouble(scanner.nextLine().trim());
             System.out.print("  Blood Pressure (e.g., 120/80): ");
             String bp = scanner.nextLine().trim();
@@ -148,6 +173,33 @@ public class PatientsService {
             System.out.println("  Vitals recorded for " + patient.getName() + ".");
         } catch (Exception e) {
             System.out.println("  Invalid input. Vitals not recorded.");
+        }
+    }
+
+    private static void showPatientDetails(Patient patient) {
+        System.out.println("\n  === Patient Details ===\n");
+        System.out.println("  Name: " + patient.getName());
+        System.out.println("  ID: " + patient.getPatientId());
+        System.out.println("  Room: " + patient.getRoomNumber());
+        System.out.println("  Diagnosis: " + patient.getDiagnosis());
+        System.out.println("  Status: " + patient.getStatus());
+
+        List<objects.PatientVitals> vitalsHistory = patient.getVitalsHistory();
+        System.out.println("\n  Vitals History:");
+        if (vitalsHistory.isEmpty()) {
+            System.out.println("  No vitals recorded yet.");
+            return;
+        }
+
+        for (int i = 0; i < vitalsHistory.size(); i++) {
+            objects.PatientVitals v = vitalsHistory.get(i);
+            System.out.println("  [" + (i + 1) + "] " + v.getTimestamp());
+            System.out.println("      Temperature: " + v.getTemperature() + " F");
+            System.out.println("      Blood Pressure: " + v.getBloodPressure());
+            System.out.println("      Heart Rate: " + v.getHeartRate() + " bpm");
+            if (!v.getNotes().isBlank()) {
+                System.out.println("      Notes: " + v.getNotes());
+            }
         }
     }
 }
