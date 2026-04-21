@@ -15,6 +15,7 @@ public class Main {
     static final DataStoreService dataStoreService = new DataStoreService(Paths.get("data"));
     static final PharmacyService pharmacyService = new PharmacyService(Paths.get("data"));
     static final RoomService roomService = new RoomService(Paths.get("data"));
+    static final SurgicalService surgicalService = new SurgicalService(Paths.get("data"));
 
     public static void main(String[] args) {
         initializeData();
@@ -29,6 +30,7 @@ public class Main {
         pharmacyService.initializeFiles();
         roomService.initializeFile();
         roomService.loadQueue();
+        surgicalService.initializeFile();
     }
 
     private static void showMainMenu() {
@@ -181,6 +183,7 @@ public class Main {
                     if (pharmacist) System.out.println("  [" + optNum++ + "] Audit medication inventory");
                     if (nurse)      System.out.println("  [" + optNum++ + "] Request room cleaning");
                     if (facilities) System.out.println("  [" + optNum++ + "] Process cleaning queue");
+                    if (doctor)     System.out.println("  [" + optNum++ + "] Schedule surgical procedure");
                     System.out.println("  [" + optNum + "] Return to main menu");
                     System.out.print("\n  Select option (or 'q' to return): ");
                     String empChoice = scanner.nextLine().trim();
@@ -219,6 +222,13 @@ public class Main {
                     if (!handled && facilities) {
                         if (String.valueOf(opt).equals(empChoice)) {
                             roomService.showFacilitiesMenu(scanner);
+                            handled = true;
+                        }
+                        opt++;
+                    }
+                    if (!handled && doctor) {
+                        if (String.valueOf(opt).equals(empChoice)) {
+                            surgicalService.runScheduleSurgeryFlow(scanner, patients, employees, roomService);
                             handled = true;
                         }
                         opt++;
