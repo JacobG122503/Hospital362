@@ -1,20 +1,31 @@
 package services;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
+
+import objects.Billing;
+import objects.CleaningRequest;
 import objects.Employee;
 import objects.Patient;
 
 public class PatientsService {
     private static String patientIDTag = "P";
-    public static void createService(
-            Scanner scanner,
-            List<Patient> patients,
-            RoomService roomService,
-            Runnable onSave
-    )
+    private final Path patientBillingPath;
+
+    public PatientsService(Path patientBillingPath) {
+        this.patientBillingPath = patientBillingPath.resolve("patients_billing.csv");
+    }
+
+    public static void createService(Scanner scanner, List<Patient> patients, PatientsService service, RoomService roomService,Runnable onSave)
     {
+        List<Billing> allBills = service.loadBills();
+
         System.out.print("\033[H\033[2J\033[3J");
         System.out.flush();
         System.out.println("\n  === Patient Repository ===\n");
@@ -22,6 +33,9 @@ public class PatientsService {
         System.out.println("  [2] View All Patients");
         System.out.println("  [3] Search Patient");
         System.out.println("  [4] Discharge Patient");
+        System.out.println("  [5] Bill Patient");
+        System.out.println("  [6] View Patient Bills");
+        System.out.println("  [7] View All Bills");
         System.out.print("\n  Select type (or 'q' to return): ");
         String type = scanner.nextLine().trim();
         if (type.equalsIgnoreCase("q")) return;
@@ -97,6 +111,119 @@ public class PatientsService {
             DischargeService.runDischargeFlow(scanner, patients, roomService, onSave);
             return;
         }
+        else if(type.equals("5"))
+        {
+            // Generating Bill
+            Patient selectedPatient = null;
+            System.out.println("Select a Patient ID from the following List: \n");
+            for(Patient p : patients)
+            {
+                System.out.println("[" + p.getPatientId() + "] " + p.getName());
+            }
+            String patientID = scanner.nextLine().trim().toLowerCase();
+            System.out.print("  ID: " + patientID);
+            for(Patient p2 : patients)
+            {
+                if(p2.getPatientId().toLowerCase().equals(patientID))
+                {
+                    selectedPatient = p2;
+                    break;
+                }
+            }
+            System.out.println(".................");
+            if(selectedPatient == null)
+            {
+                System.out.println("Patient ID not found");
+                System.out.println("  Press Enter to return to menu...");
+                scanner.nextLine();
+                return;
+            }
+            System.out.println("Selected: " + selectedPatient.getName());
+
+            System.out.println("Estimated Medical Care Price: ");
+            int estimatedPrice = Integer.parseInt(scanner.nextLine().trim());
+            System.out.println("List out all the medical care they received: ");
+            String medicalCareReceived = scanner.nextLine().trim();
+            System.out.println("Should their Medical Insurance (" + selectedPatient.getInsuranceProvider() + ") cover part of the bill? (Yes / No): ");
+            String coverBill = scanner.nextLine().trim();
+            int insuranceCoverdAmount = 0;
+
+            if(coverBill.toLowerCase().equals("yes"))
+            {
+                System.out.println("How much should the insurance cover: $");
+                insuranceCoverdAmount = Integer.parseInt(scanner.nextLine().trim());
+            }
+            int billPrice = estimatedPrice - insuranceCoverdAmount;
+            System.out.println("Is the patient able to pay the bill in full? (Yes / No)");
+            String payInFull = scanner.nextLine().trim();
+            if(payInFull.toLowerCase().equals("no"))
+            {
+                System.out.println("Setting up Automatic Payment Plan...");
+                System.out.println("Total Price: " + billPrice + " | 24 Months @ (" + billPrice / 24 + ") Per month");
+            }
+            System.out.println("Successfully Billed " + selectedPatient.getName() + " for $" + billPrice);
+            Billing newBill = new Billing(
+                    selectedPatient.getPatientId(),
+                    selectedPatient.getName(),
+                    medicalCareReceived,
+                    selectedPatient.getInsuranceProvider(),
+                    payInFull.equalsIgnoreCase(payInFull),
+                    billPrice
+            );
+            allBills.add(newBill);
+            service.saveBills(allBills);
+        }
+        else if(type.equals("6"))
+        {
+            // Searching
+            System.out.println(allBills.stream().count());
+            Patient selectedPatient = null;
+            System.out.println("Select a Patient ID from the following List: \n");
+            for(Patient p : patients)
+            {
+                System.out.println("[" + p.getPatientId() + "] " + p.getName());
+            }
+            String patientID = scanner.nextLine().trim().toLowerCase();
+            System.out.print("  ID: " + patientID);
+            for(Patient p2 : patients)
+            {
+                if(p2.getPatientId().toLowerCase().equals(patientID))
+                {
+                    selectedPatient = p2;
+                    break;
+                }
+            }
+            System.out.println(".................");
+            if(selectedPatient == null)
+            {
+                System.out.println("Patient ID not found");
+                System.out.println("  Press Enter to return to menu...");
+                scanner.nextLine();
+                return;
+            }
+            System.out.println("Selected: " + selectedPatient.getName());
+            int count = 0;
+            for(Billing b : allBills)
+            {
+                if(b.getPatientId().equalsIgnoreCase(selectedPatient.getPatientId()))
+                {
+                    count++;
+                    System.out.println(b.toString());
+                }
+            }
+            if(count == 0)
+            {
+                System.out.println("Patient does not have any Bills to pay.");
+            }
+        }
+        else if(type.equals("7"))
+        {
+            System.out.println("Viewing all Bills:\n");
+            for(Billing b : allBills)
+            {
+                System.out.println(b.toString());
+            }
+        }
         else
         {
             System.out.println("\n  Invalid selection.");
@@ -104,4 +231,89 @@ public class PatientsService {
         System.out.println("  Press Enter to return to menu...");
         scanner.nextLine();
     }
+
+
+    private List<Billing> loadBills() {
+        ArrayList<Billing> patientBills = new ArrayList<>();
+        try {
+            if (!Files.exists(patientBillingPath)) return patientBills;
+            List<String> lines = Files.readAllLines(patientBillingPath);
+            for (int i = 1; i < lines.size(); i++) {
+                String line = lines.get(i);
+                if (line.isBlank()) continue;
+                String[] parts = parseCsvLine(line, 6);
+                if (parts.length < 6) continue;
+                Billing bill = new Billing(
+                        parts[0],
+                        parts[1],
+                        parts[2],
+                        parts[3],
+                        Boolean.parseBoolean(parts[4]),
+                        Integer.parseInt(parts[5].trim())
+                );
+                patientBills.add(bill);
+            }
+        } catch (IOException | NumberFormatException e) {
+            System.out.println("Error loading Billing: " + e.getMessage());
+        }
+        return patientBills;
+    }
+
+    public void saveBills(List<Billing> bills) {
+        List<String> lines = new ArrayList<>();
+        lines.add("PatientID,PatientName,Description,IsPaid,Amount");
+
+        for (Billing b : bills) {
+            lines.add(String.join(",",
+                    escapeCsv(b.getPatientId()),
+                    escapeCsv(b.getName()),
+                    escapeCsv(b.getMedicalInfo()),
+                    escapeCsv(b.getInsuranceProvider()),
+                    Boolean.toString(b.getPayInFull()),
+                    Integer.toString(b.getBill())
+            ));
+        }
+
+        try {
+            Files.write(patientBillingPath, lines);
+        } catch (IOException e) {
+            System.err.println("Error saving bills: " + e.getMessage());
+        }
+    }
+
+    private String escapeCsv(String data) {
+        if (data == null) return "";
+        if (data.contains(",") || data.contains("\"") || data.contains("\n")) {
+            return "\"" + data.replace("\"", "\"\"") + "\"";
+        }
+        return data;
+    }
+
+    private String[] parseCsvLine(String line, int expectedCols) {
+        List<String> result = new ArrayList<>();
+        boolean inQuotes = false;
+        StringBuilder sb = new StringBuilder();
+        int col = 0;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == '"') {
+                inQuotes = !inQuotes;
+            } else if (c == ',' && !inQuotes) {
+                result.add(sb.toString().replace("\"\"", "\""));
+                sb.setLength(0);
+                col++;
+            } else {
+                sb.append(c);
+            }
+        }
+        result.add(sb.toString().replace("\"\"", "\""));
+        while (result.size() < expectedCols) result.add("");
+        return result.toArray(new String[0]);
+    }
+
+    public void addPatient()
+    {
+
+    }
+
 }

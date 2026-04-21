@@ -11,6 +11,7 @@ public class Main {
     static ArrayList<Employee> employees = new ArrayList<>();
     static HashSet<String> blacklistedApplicants = new HashSet<>();
     static Scanner scanner = new Scanner(System.in);
+    static final PatientsService patientsService = new PatientsService(Paths.get("data"));
     static final DataStoreService dataStoreService = new DataStoreService(Paths.get("data"));
     static final PharmacyService pharmacyService = new PharmacyService(Paths.get("data"));
     static final RoomService roomService = new RoomService(Paths.get("data"));
@@ -81,6 +82,7 @@ public class Main {
                     PatientsService.createService(
                             scanner,
                             patients,
+                            patientsService,
                             roomService,
                             () -> dataStoreService.saveData(patients, employees)
                     );
