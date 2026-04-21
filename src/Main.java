@@ -11,9 +11,11 @@ public class Main {
     static ArrayList<Employee> employees = new ArrayList<>();
     static HashSet<String> blacklistedApplicants = new HashSet<>();
     static Scanner scanner = new Scanner(System.in);
+    static final PatientsService patientsService = new PatientsService(Paths.get("data"));
     static final DataStoreService dataStoreService = new DataStoreService(Paths.get("data"));
     static final PharmacyService pharmacyService = new PharmacyService(Paths.get("data"));
     static final RoomService roomService = new RoomService(Paths.get("data"));
+    static final SurgicalService surgicalService = new SurgicalService(Paths.get("data"));
 
     public static void main(String[] args) {
         initializeData();
@@ -28,6 +30,7 @@ public class Main {
         pharmacyService.initializeFiles();
         roomService.initializeFile();
         roomService.loadQueue();
+        surgicalService.initializeFile();
     }
 
     private static void showMainMenu() {
@@ -81,6 +84,7 @@ public class Main {
                     PatientsService.createService(
                             scanner,
                             patients,
+                            patientsService,
                             roomService,
                             () -> dataStoreService.saveData(patients, employees)
                     );
@@ -179,6 +183,7 @@ public class Main {
                     if (pharmacist) System.out.println("  [" + optNum++ + "] Audit medication inventory");
                     if (nurse)      System.out.println("  [" + optNum++ + "] View rooms");
                     if (facilities) System.out.println("  [" + optNum++ + "] Process cleaning queue");
+                    if (doctor)     System.out.println("  [" + optNum++ + "] Schedule surgical procedure");
                     if (facilities) System.out.println("  [" + optNum++ + "] Manage rooms & equipment");
                     System.out.println("  [" + optNum + "] Return to main menu");
                     System.out.print("\n  Select option (or 'q' to return): ");
@@ -223,6 +228,13 @@ public class Main {
                     if (!handled && facilities) {
                         if (String.valueOf(opt).equals(empChoice)) {
                             roomService.showFacilitiesMenu(scanner);
+                            handled = true;
+                        }
+                        opt++;
+                    }
+                    if (!handled && doctor) {
+                        if (String.valueOf(opt).equals(empChoice)) {
+                            surgicalService.runScheduleSurgeryFlow(scanner, patients, employees, roomService);
                             handled = true;
                         }
                         opt++;

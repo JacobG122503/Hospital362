@@ -1,0 +1,2 @@
+Name,Age,Gender,Phone,Address,PatientId,Diagnosis,Room,AdmissionDate,InsuranceProvider,Status,DischargeDate,Allergies,ActiveMedications
+Jane Doe,20,F,2345678901,456 Paper Street,P1,Appendicitis,1,2026-04-20,Blue Cross Blue Shield,admitted,,,
