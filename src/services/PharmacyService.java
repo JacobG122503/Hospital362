@@ -15,10 +15,12 @@ import objects.Patient;
 public class PharmacyService {
     private final Path inventoryFile;
     private final Path prescriptionsFile;
+    private final Path purchaseOrdersFile;
 
     public PharmacyService(Path dataDir) {
         this.inventoryFile = dataDir.resolve("pharmacy_inventory.csv");
         this.prescriptionsFile = dataDir.resolve("prescriptions.csv");
+        this.purchaseOrdersFile = dataDir.resolve("purchase_orders.csv");
     }
 
     public void initializeFiles() {
@@ -28,6 +30,9 @@ public class PharmacyService {
             }
             if (!Files.exists(prescriptionsFile)) {
                 Files.createFile(prescriptionsFile);
+            }
+            if (!Files.exists(purchaseOrdersFile)) {
+                Files.createFile(purchaseOrdersFile);
             }
         } catch (IOException e) {
             System.out.println("Error initializing pharmacy files: " + e.getMessage());
@@ -384,6 +389,148 @@ public class PharmacyService {
         System.out.println("  Inventory updated and prescription marked fulfilled.");
         System.out.println("\n  Press Enter to return...");
         scanner.nextLine();
+    }
+
+    public void orderPharmacySupplies(Scanner scanner) {
+        System.out.print("\033[H\033[2J\033[3J");
+        System.out.flush();
+        System.out.println("\n  === Order Pharmacy Supplies ===\n");
+
+        Map<String, InventoryItem> inventory = loadInventoryItems();
+        if (inventory.isEmpty()) {
+            System.out.println("  No medications found in inventory.");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+
+        List<String> medicationNames = new ArrayList<>(inventory.keySet());
+        medicationNames.sort(String.CASE_INSENSITIVE_ORDER);
+
+        ArrayList<InventoryAuditResult> understocked = new ArrayList<>();
+        for (String medication : medicationNames) {
+            InventoryItem item = inventory.get(medication);
+            int ideal = item.idealQuantity == null ? 0 : item.idealQuantity;
+            if (item.quantity < ideal) {
+                understocked.add(new InventoryAuditResult(medication, item.quantity, ideal, ideal - item.quantity));
+            }
+        }
+
+        String selectedMedication = null;
+
+        while (selectedMedication == null) {
+            System.out.println("  Understocked Medications:");
+            if (understocked.isEmpty()) {
+                System.out.println("  None. All medications are fully stocked.");
+            } else {
+                for (int i = 0; i < understocked.size(); i++) {
+                    InventoryAuditResult result = understocked.get(i);
+                    System.out.println("  [" + (i + 1) + "] " + result.medicationName
+                            + " (Current: " + result.currentQuantity + " | Ideal: " + result.idealQuantity + ")");
+                }
+            }
+
+            System.out.println("\n  Select a medication to restock by number, or type 'search' to manually search for a medication.");
+            System.out.print("  Choice (or 'q' to return): ");
+            String choice = scanner.nextLine().trim();
+
+            if (choice.equalsIgnoreCase("q")) {
+                return;
+            }
+
+            if (choice.equalsIgnoreCase("search")) {
+                System.out.print("  Enter medication name to search: ");
+                String searchName = scanner.nextLine().trim();
+                String foundMed = null;
+                for (String med : medicationNames) {
+                    if (med.equalsIgnoreCase(searchName)) {
+                        foundMed = med;
+                        break;
+                    }
+                }
+                
+                if (foundMed != null) {
+                    InventoryItem foundItem = inventory.get(foundMed);
+                    int ideal = foundItem.idealQuantity == null ? 0 : foundItem.idealQuantity;
+                    System.out.println("\n  Medication Details:");
+                    System.out.println("  Name: " + foundMed);
+                    System.out.println("  Current Stock: " + foundItem.quantity);
+                    System.out.println("  Ideal Stock: " + ideal);
+                    selectedMedication = foundMed;
+                } else {
+                    System.out.println("  [ERROR] Medication not found in inventory.");
+                    System.out.print("  Press Enter to continue...");
+                    scanner.nextLine();
+                }
+                continue;
+            }
+
+            try {
+                int index = Integer.parseInt(choice) - 1;
+                if (index >= 0 && index < understocked.size()) {
+                    selectedMedication = understocked.get(index).medicationName;
+                } else {
+                    System.out.println("  [ERROR] Invalid selection.");
+                    System.out.print("  Press Enter to continue...");
+                    scanner.nextLine();
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("  [ERROR] Invalid input.");
+                System.out.print("  Press Enter to continue...");
+                scanner.nextLine();
+            }
+        }
+
+        int orderQuantity = 0;
+        while (true) {
+            System.out.print("\n  Enter desired order quantity for " + selectedMedication + ": ");
+            String qtyInput = scanner.nextLine().trim();
+            try {
+                orderQuantity = Integer.parseInt(qtyInput);
+                if (orderQuantity <= 0) {
+                    System.out.println("  [ERROR] Order quantity must be a positive integer.");
+                    System.out.println("  Please enter a valid positive integer.");
+                    continue;
+                }
+                break;
+            } catch (NumberFormatException e) {
+                System.out.println("  [ERROR] Order quantity must be a numeric value.");
+                System.out.println("  Please enter a valid positive integer.");
+            }
+        }
+
+        System.out.println("\n  === Order Summary ===");
+        System.out.println("  Medication: " + selectedMedication);
+        System.out.println("  Quantity: " + orderQuantity);
+        System.out.print("  Confirm and submit supply order? (y/n): ");
+        String confirm = scanner.nextLine().trim();
+
+        if (confirm.equalsIgnoreCase("y")) {
+            String orderId = "PO" + System.currentTimeMillis();
+            savePurchaseOrder(orderId, selectedMedication, orderQuantity);
+            System.out.println("\n  [SUCCESS] Order confirmation: Purchase order " + orderId + " has been generated and logged as a pending delivery.");
+        } else {
+            System.out.println("\n  Order canceled.");
+        }
+
+        System.out.print("\n  Press Enter to return...");
+        scanner.nextLine();
+    }
+
+    private void savePurchaseOrder(String orderId, String medicationName, int quantity) {
+        List<String> lines = new ArrayList<>();
+        try {
+            if (Files.exists(purchaseOrdersFile)) {
+                lines = Files.readAllLines(purchaseOrdersFile);
+            }
+            if (lines.isEmpty()) {
+                lines.add("OrderId,MedicationName,Quantity,Status");
+            }
+            lines.add(String.join(",", escapeCsv(orderId), escapeCsv(medicationName), Integer.toString(quantity), "Pending Delivery"));
+            Files.write(purchaseOrdersFile, lines);
+        } catch (IOException e) {
+            System.out.println("Error saving purchase order: " + e.getMessage());
+        }
     }
 
     private List<Prescription> loadPrescriptions() {

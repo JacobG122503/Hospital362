@@ -213,6 +213,13 @@ public class Main {
                         }
                         opt++;
                     }
+                    if (!handled && pharmacist) {
+                        if (String.valueOf(opt).equals(empChoice)) {
+                            pharmacyService.orderPharmacySupplies(scanner);
+                            handled = true;
+                        }
+                        opt++;
+                    }
                     if (!handled && nurse) {
                         if (String.valueOf(opt).equals(empChoice)) {
                             roomService.showNurseMenu(
