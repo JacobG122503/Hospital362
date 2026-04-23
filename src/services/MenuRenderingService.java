@@ -58,7 +58,7 @@ public class MenuRenderingService {
             for (int c = boxWidth - 1; c > 0; c--) perimeter.add(new int[]{startRow + totalHeight - 1, startCol + c});
             for (int r = totalHeight - 1; r > 0; r--) perimeter.add(new int[]{startRow + r, startCol});
 
-            long sleepTime = 1000 / Math.max(1, perimeter.size());
+            long sleepTime = 1100 / Math.max(1, perimeter.size());
 
             for (int[] pos : perimeter) {
                 String c = getBorderChar(pos[0], pos[1], startRow, startCol, boxWidth, totalHeight);
@@ -106,9 +106,17 @@ public class MenuRenderingService {
     }
 
     private static String getBorderChar(int r, int c, int startRow, int startCol, int width, int height) {
-        if ((r == startRow && c == startCol) || (r == startRow && c == startCol + width - 1) ||
-            (r == startRow + height - 1 && c == startCol) || (r == startRow + height - 1 && c == startCol + width - 1)) {
-            return "+";
+        if (r == startRow && c == startCol) {
+            return "┌";
+        }
+        if (r == startRow && c == startCol + width - 1) {
+            return "┐";
+        }
+        if (r == startRow + height - 1 && c == startCol) {
+            return "└";
+        }
+        if (r == startRow + height - 1 && c == startCol + width - 1) {
+            return "┘";
         }
         if (r == startRow || r == startRow + height - 1) {
             return "─"; // Straight horizontal line
