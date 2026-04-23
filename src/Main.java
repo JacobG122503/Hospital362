@@ -142,11 +142,16 @@ public class Main {
                 }
 
                 while (true) {
-                    System.out.println();
+                    System.out.print("\033[H\033[2J\033[3J");
+                    System.out.flush();
+                    System.out.println("\n  === Employee Workspace: " + selected.getName() + " ===");
+                    System.out.println("  Department: " + selected.getDepartment() + " | Role: " + selected.getRole() + "\n");
                     int optNum = 1;
                     if (doctor)     System.out.println("  [" + optNum++ + "] Prescribe medication");
                     if (pharmacist) System.out.println("  [" + optNum++ + "] Dispense prescribed medication");
                     if (pharmacist) System.out.println("  [" + optNum++ + "] Audit medication inventory");
+                    if (pharmacist) System.out.println("  [" + optNum++ + "] Order pharmacy supplies");
+                    if (pharmacist) System.out.println("  [" + optNum++ + "] Receive pharmacy delivery");
                     if (nurse)      System.out.println("  [" + optNum++ + "] View rooms");
                     if (facilities) System.out.println("  [" + optNum++ + "] Process cleaning queue");
                     if (doctor)     System.out.println("  [" + optNum++ + "] Schedule surgical procedure");
@@ -182,6 +187,13 @@ public class Main {
                     if (!handled && pharmacist) {
                         if (String.valueOf(opt).equals(empChoice)) {
                             pharmacyService.orderPharmacySupplies(scanner);
+                            handled = true;
+                        }
+                        opt++;
+                    }
+                    if (!handled && pharmacist) {
+                        if (String.valueOf(opt).equals(empChoice)) {
+                            pharmacyService.receivePharmacyDelivery(scanner);
                             handled = true;
                         }
                         opt++;
@@ -236,9 +248,12 @@ public class Main {
 
     public static void needAssistance()
     {
-        System.out.println("Immediate Assistance button pressed");
-        System.out.println("Assistance is on the way... Stand by");
-        System.out.println("  Press Enter to return to menu...");
+        System.out.print("\033[H\033[2J\033[3J");
+        System.out.flush();
+        System.out.println("\n  === Immediate Assistance ===");
+        System.out.println("  Immediate Assistance button pressed");
+        System.out.println("  Assistance is on the way... Stand by");
+        System.out.println("\n  Press Enter to return to menu...");
         scanner.nextLine();
     }
 

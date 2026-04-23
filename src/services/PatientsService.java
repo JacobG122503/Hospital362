@@ -301,6 +301,8 @@ public class PatientsService {
     }
 
     private static void showPatientDetails(Patient patient) {
+        System.out.print("\033[H\033[2J\033[3J");
+        System.out.flush();
         System.out.println("\n  === Patient Details ===\n");
         System.out.println("  Name: " + patient.getName());
         System.out.println("  ID: " + patient.getPatientId());
