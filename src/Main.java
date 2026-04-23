@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.nio.file.Paths;
 import java.util.Scanner;
 import objects.Employee;
@@ -19,7 +20,6 @@ public class Main {
 
     public static void main(String[] args) {
         initializeData();
-        BannerService.showWelcomeBanner();
         showMainMenu();
     }
 
@@ -34,46 +34,12 @@ public class Main {
     }
 
     private static void showMainMenu() {
-        int termWidth = 80;
-        int termHeight = 24;
+        boolean firstLoad = true;
 
         while (true) {
-            System.out.print("\033[H\033[2J\033[3J");
-            System.out.flush();
-
-            String[] menuLines = {
-                "================================",
-                "   Hospital-362 Main Menu",
-                "================================",
-                "",
-                "[1]  Log in as Employee",
-                "[2]  Patients",
-                "[3]  Create New Person",
-                "[4]  Hire New Employee",
-                "[5]  Immediate Assistance",
-                "[q]  Quit",
-                "",
-                "================================",
-                "",
-                "Select an option: "
-            };
-
-            int topPadding = (termHeight - menuLines.length) / 2;
-            for (int i = 0; i < topPadding; i++) {
-                System.out.println();
-            }
-
-            for (int i = 0; i < menuLines.length; i++) {
-                int leftPadding = (termWidth - menuLines[i].length()) / 2;
-                if (leftPadding < 0) leftPadding = 0;
-                String pad = " ".repeat(leftPadding);
-                if (i == menuLines.length - 1) {
-                    System.out.print(pad + menuLines[i]);
-                } else {
-                    System.out.println(pad + menuLines[i]);
-                }
-            }
-
+            MenuRenderingService.drawMainMenu(firstLoad);
+            firstLoad = false;
+            
             String choice = scanner.nextLine().trim();
 
             switch (choice) {
@@ -176,11 +142,16 @@ public class Main {
                 }
 
                 while (true) {
-                    System.out.println();
+                    System.out.print("\033[H\033[2J\033[3J");
+                    System.out.flush();
+                    System.out.println("\n  === Employee Workspace: " + selected.getName() + " ===");
+                    System.out.println("  Department: " + selected.getDepartment() + " | Role: " + selected.getRole() + "\n");
                     int optNum = 1;
                     if (doctor)     System.out.println("  [" + optNum++ + "] Prescribe medication");
                     if (pharmacist) System.out.println("  [" + optNum++ + "] Dispense prescribed medication");
                     if (pharmacist) System.out.println("  [" + optNum++ + "] Audit medication inventory");
+                    if (pharmacist) System.out.println("  [" + optNum++ + "] Order pharmacy supplies");
+                    if (pharmacist) System.out.println("  [" + optNum++ + "] Receive pharmacy delivery");
                     if (nurse)      System.out.println("  [" + optNum++ + "] View rooms");
                     if (facilities) System.out.println("  [" + optNum++ + "] Process cleaning queue");
                     if (doctor)     System.out.println("  [" + optNum++ + "] Schedule surgical procedure");
@@ -209,6 +180,20 @@ public class Main {
                     if (!handled && pharmacist) {
                         if (String.valueOf(opt).equals(empChoice)) {
                             pharmacyService.auditMedicationInventory(scanner);
+                            handled = true;
+                        }
+                        opt++;
+                    }
+                    if (!handled && pharmacist) {
+                        if (String.valueOf(opt).equals(empChoice)) {
+                            pharmacyService.orderPharmacySupplies(scanner);
+                            handled = true;
+                        }
+                        opt++;
+                    }
+                    if (!handled && pharmacist) {
+                        if (String.valueOf(opt).equals(empChoice)) {
+                            pharmacyService.receivePharmacyDelivery(scanner);
                             handled = true;
                         }
                         opt++;
@@ -263,9 +248,12 @@ public class Main {
 
     public static void needAssistance()
     {
-        System.out.println("Immediate Assistance button pressed");
-        System.out.println("Assistance is on the way... Stand by");
-        System.out.println("  Press Enter to return to menu...");
+        System.out.print("\033[H\033[2J\033[3J");
+        System.out.flush();
+        System.out.println("\n  === Immediate Assistance ===");
+        System.out.println("  Immediate Assistance button pressed");
+        System.out.println("  Assistance is on the way... Stand by");
+        System.out.println("\n  Press Enter to return to menu...");
         scanner.nextLine();
     }
 

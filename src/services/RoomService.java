@@ -353,6 +353,8 @@ public class RoomService {
 
     // Helper for nurse to record vitals for a patient in a room
     private void recordVitalsForRoomPatient(Scanner scanner, Patient patient, Runnable onSave) {
+        System.out.print("\033[H\033[2J\033[3J");
+        System.out.flush();
         System.out.println("\n  === Record Vitals for " + patient.getName() + " (Room " + patient.getRoomNumber() + ") ===\n");
         try {
             System.out.print("  Temperature (F): ");
