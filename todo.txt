@@ -3,3 +3,13 @@
 
 TODO:
 - Loading screen loads in center and make the border fill in around it.
+
+For my loading animation: 
+Also the main banner should load in the center now and stay there when the rest of the menu loads. 
+So the step will be first line by line load the logo in the center, then circle around the border with an animation
+then just load in all the selection items. make sure the line where you input is also including in the border now 
+I would like the total loading around the border to take a total of 1 second. 
+Also the cursor slightly opaque character follows teh border around whihc 
+I do not want to happen. Also you can probably remove the banner service since we
+ are not going to use that anymore. Also move as much as the main loading screen 
+ and stuff out of main if possible to avoid clutter. Also dont want the jhorizontal to be equal sines. make it a straight line
