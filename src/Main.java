@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.nio.file.Paths;
 import java.util.Scanner;
 import objects.Employee;
@@ -33,6 +34,17 @@ public class Main {
         surgicalService.initializeFile();
     }
 
+    private static String getBorderChar(int r, int c, int startRow, int startCol, int width, int height) {
+        if ((r == startRow && c == startCol) || (r == startRow && c == startCol + width - 1) ||
+            (r == startRow + height - 1 && c == startCol) || (r == startRow + height - 1 && c == startCol + width - 1)) {
+            return "+";
+        }
+        if (r == startRow || r == startRow + height - 1) {
+            return "=";
+        }
+        return "|";
+    }
+
     private static void showMainMenu() {
         int termWidth = 80;
         int termHeight = 24;
@@ -41,40 +53,131 @@ public class Main {
             System.out.print("\033[H\033[2J\033[3J");
             System.out.flush();
 
-            String[] menuLines = {
-                "================================",
-                "   Hospital-362 Main Menu",
-                "================================",
-                "",
+            String[] banner = {
+                " _   _                 _ _        _       _____  ____  _____ ",
+                "| | | |               (_) |      | |     |____ |/ ___|/ __  \\",
+                "| |_| | ___  ___ _ __  _| |_ __ _| |______   / / /___ `' / /'",
+                "|  _  |/ _ \\/ __| '_ \\| | __/ _` | |______|  \\ \\ ___ \\  / /  ",
+                "| | | | (_) \\__ \\ |_) | | || (_| | |     .___/ / \\_/ |./ /___",
+                "\\_| |_/\\___/|___/ .__/|_|\\__\\__,_|_|     \\____/\\_____/\\_____/",
+                "                | |                                          ",
+                "                |_|                                          "
+            };
+
+            int boxWidth = 75;
+            int leftPadding = Math.max(0, (termWidth - boxWidth) / 2);
+            String pad = " ".repeat(leftPadding);
+
+            List<String> menuLines = new ArrayList<>();
+            menuLines.add("+" + "=".repeat(boxWidth - 2) + "+");
+            menuLines.add("|" + " ".repeat(boxWidth - 2) + "|");
+            
+            for (String b : banner) {
+                int padLen = (boxWidth - 2 - b.length()) / 2;
+                int rightPadLen = boxWidth - 2 - b.length() - padLen;
+                if (padLen < 0) padLen = 0;
+                if (rightPadLen < 0) rightPadLen = 0;
+                String leftB = " ".repeat(padLen);
+                String rightB = " ".repeat(rightPadLen);
+                menuLines.add("|" + leftB + b + rightB + "|");
+            }
+            
+            menuLines.add("|" + " ".repeat(boxWidth - 2) + "|");
+            
+            String[] options = {
                 "[1]  Log in as Employee",
                 "[2]  Patients",
                 "[3]  Create New Person",
                 "[4]  Hire New Employee",
                 "[5]  Immediate Assistance",
-                "[q]  Quit",
-                "",
-                "================================",
-                "",
-                "Select an option: "
+                "[q]  Quit"
             };
+            
+            for (String opt : options) {
+                int padLen = (boxWidth - 2 - opt.length()) / 2;
+                int rightPadLen = boxWidth - 2 - opt.length() - padLen;
+                String leftO = " ".repeat(padLen);
+                String rightO = " ".repeat(rightPadLen);
+                menuLines.add("|" + leftO + opt + rightO + "|");
+            }
+            
+            menuLines.add("|" + " ".repeat(boxWidth - 2) + "|");
+            menuLines.add("+" + "=".repeat(boxWidth - 2) + "+");
+            menuLines.add("");
+            menuLines.add("Select an option: ");
 
-            int topPadding = (termHeight - menuLines.length) / 2;
+            int topPadding = Math.max(0, (termHeight - menuLines.size()) / 2);
             for (int i = 0; i < topPadding; i++) {
                 System.out.println();
             }
 
-            for (int i = 0; i < menuLines.length; i++) {
-                int leftPadding = (termWidth - menuLines[i].length()) / 2;
-                if (leftPadding < 0) leftPadding = 0;
-                String pad = " ".repeat(leftPadding);
-                if (i == menuLines.length - 1) {
-                    System.out.print(pad + menuLines[i]);
+            for (int i = 0; i < menuLines.size(); i++) {
+                if (i == menuLines.size() - 1) {
+                    System.out.print(pad + menuLines.get(i));
                 } else {
-                    System.out.println(pad + menuLines[i]);
+                    System.out.println(pad + menuLines.get(i));
                 }
             }
+            System.out.flush();
 
+            int startRow = topPadding + 1;
+            int startCol = leftPadding + 1;
+            int height = menuLines.size() - 2;
+            
+            List<int[]> perimeter = new ArrayList<>();
+            for (int c = 0; c < boxWidth - 1; c++) perimeter.add(new int[]{startRow, startCol + c});
+            for (int r = 0; r < height - 1; r++) perimeter.add(new int[]{startRow + r, startCol + boxWidth - 1});
+            for (int c = boxWidth - 1; c > 0; c--) perimeter.add(new int[]{startRow + height - 1, startCol + c});
+            for (int r = height - 1; r > 0; r--) perimeter.add(new int[]{startRow + r, startCol});
+
+            Thread animThread = new Thread(() -> {
+                try {
+                    int pos1 = 0;
+                    int pos2 = perimeter.size() / 2;
+                    String char1 = "*"; 
+                    String char2 = "@"; 
+
+                    while (!Thread.currentThread().isInterrupted()) {
+                        System.out.print("\0337"); // Save cursor (VT100)
+                        System.out.print("\033[s"); // Save cursor (ANSI)
+                        
+                        int[] old1 = perimeter.get(pos1);
+                        int[] old2 = perimeter.get(pos2);
+                        
+                        String borderChar1 = getBorderChar(old1[0], old1[1], startRow, startCol, boxWidth, height);
+                        String borderChar2 = getBorderChar(old2[0], old2[1], startRow, startCol, boxWidth, height);
+                        
+                        System.out.print("\033[" + old1[0] + ";" + old1[1] + "H" + borderChar1);
+                        System.out.print("\033[" + old2[0] + ";" + old2[1] + "H" + borderChar2);
+                        
+                        pos1 = (pos1 + 1) % perimeter.size();
+                        pos2 = (pos2 + 1) % perimeter.size();
+                        
+                        int[] new1 = perimeter.get(pos1);
+                        int[] new2 = perimeter.get(pos2);
+                        
+                        System.out.print("\033[" + new1[0] + ";" + new1[1] + "H" + char1);
+                        System.out.print("\033[" + new2[0] + ";" + new2[1] + "H" + char2);
+                        
+                        System.out.print("\0338"); // Restore cursor (VT100)
+                        System.out.print("\033[u"); // Restore cursor (ANSI)
+                        System.out.flush();
+                        
+                        Thread.sleep(75);
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            });
+            animThread.start();
+            
             String choice = scanner.nextLine().trim();
+            animThread.interrupt();
+            try {
+                animThread.join();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
 
             switch (choice) {
                 case "1":

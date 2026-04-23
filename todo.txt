@@ -2,4 +2,4 @@
 
 
 TODO:
-- 
+- Loading screen loads in center and make the border fill in around it.
