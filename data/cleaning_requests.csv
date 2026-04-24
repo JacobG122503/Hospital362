@@ -1,2 +1,2 @@
-RoomNum,CleaningType,Date,RequestedBy,Status
-400,Deep,2026-04-13,Marco Rivera,pending
+RoomNum,CleaningType,Date,RequestedBy,Status,Details
+400,BIOHAZARD,2026-04-23 18:50,Jessica Huang,pending,Pathological tissue
