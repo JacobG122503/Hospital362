@@ -55,10 +55,38 @@ public class PharmacyService {
         List<String> medicationNames = new ArrayList<>(inventory.keySet());
         medicationNames.sort(String.CASE_INSENSITIVE_ORDER);
 
-        System.out.println("  Current Inventory:");
+        boolean updatedTargets = promptForMissingInventoryTargets(scanner, inventory, medicationNames);
+        if (updatedTargets) {
+            saveInventoryItems(inventory);
+        }
+
+        List<String> autoOrderMessages = createAutomaticReorders(inventory);
+
+        ArrayList<String> understockedMedications = new ArrayList<>();
+        System.out.println("  Inventory Audit Report:\n");
+        System.out.printf("  %-24s %-15s %-15s %-15s%n", "Medication", "Current", "Ideal", "Difference");
+        System.out.println("  -------------------------------------------------------------------");
         for (String medication : medicationNames) {
             InventoryItem item = inventory.get(medication);
-            System.out.println("  - " + medication + " | Current Stock: " + item.quantity);
+            if (item.idealQuantity != null && item.quantity < item.idealQuantity) {
+                understockedMedications.add(medication);
+                System.out.printf("  %-24s %-15d %-15d %-15d%n",
+                        medication,
+                        item.quantity,
+                        item.idealQuantity,
+                        item.idealQuantity - item.quantity);
+            }
+        }
+
+        if (understockedMedications.isEmpty()) {
+            System.out.println("\n  No medications are needing to be stocked.");
+        }
+
+        if (!autoOrderMessages.isEmpty()) {
+            System.out.println("\n  Automatic Reorder Actions:");
+            for (String message : autoOrderMessages) {
+                System.out.println(message);
+            }
         }
 
         System.out.println("\n  Press Enter to return...");
@@ -636,10 +664,12 @@ public class PharmacyService {
             for (int i = 1; i < lines.size(); i++) { // skip header
                 String line = lines.get(i);
                 if (line.isBlank()) continue;
-                String[] parts = parseCsvLine(line, 2);
+                String[] parts = parseCsvLine(line, 4);
                 if (parts.length < 2) continue;
                 int quantity = Integer.parseInt(parts[1]);
-                inventory.put(parts[0], new InventoryItem(quantity));
+                Integer idealQuantity = parseOptionalInteger(parts[2]);
+                Integer criticalThreshold = parseOptionalInteger(parts[3]);
+                inventory.put(parts[0], new InventoryItem(quantity, idealQuantity, criticalThreshold));
             }
         } catch (IOException | NumberFormatException e) {
             System.out.println("Error loading inventory: " + e.getMessage());
@@ -673,27 +703,138 @@ public class PharmacyService {
         Map<String, InventoryItem> existingItems = loadInventoryItems();
         HashMap<String, InventoryItem> updatedItems = new HashMap<>();
         for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
-            updatedItems.put(entry.getKey(), new InventoryItem(entry.getValue()));
+            InventoryItem existingItem = existingItems.get(entry.getKey());
+            Integer idealQuantity = existingItem == null ? null : existingItem.idealQuantity;
+            Integer criticalThreshold = existingItem == null ? null : existingItem.criticalThreshold;
+            updatedItems.put(entry.getKey(), new InventoryItem(entry.getValue(), idealQuantity, criticalThreshold));
         }
         saveInventoryItems(updatedItems);
     }
 
     private void saveInventoryItems(Map<String, InventoryItem> inventory) {
         ArrayList<String> lines = new ArrayList<>();
-        lines.add("Medication,Quantity");
+        lines.add("Medication,Quantity,IdealQuantity,CriticalThreshold");
 
         List<String> medicationNames = new ArrayList<>(inventory.keySet());
         medicationNames.sort(String.CASE_INSENSITIVE_ORDER);
 
         for (String medication : medicationNames) {
             InventoryItem item = inventory.get(medication);
-            lines.add(String.join(",", escapeCsv(medication), Integer.toString(item.quantity)));
+            lines.add(String.join(",",
+                    escapeCsv(medication),
+                    Integer.toString(item.quantity),
+                    item.idealQuantity == null ? "" : Integer.toString(item.idealQuantity),
+                    item.criticalThreshold == null ? "" : Integer.toString(item.criticalThreshold)));
         }
         try {
             Files.write(inventoryFile, lines);
         } catch (IOException e) {
             System.out.println("Error saving inventory: " + e.getMessage());
         }
+    }
+
+    private boolean promptForMissingInventoryTargets(Scanner scanner, Map<String, InventoryItem> inventory, List<String> medicationNames) {
+        boolean updated = false;
+        for (String medication : medicationNames) {
+            InventoryItem item = inventory.get(medication);
+            if (item.idealQuantity == null) {
+                item.idealQuantity = promptForPositiveInteger(scanner, "  Enter ideal stock amount for " + medication + ": ");
+                updated = true;
+            }
+            if (item.criticalThreshold == null) {
+                while (true) {
+                    int criticalThreshold = promptForPositiveInteger(scanner, "  Enter critical stock threshold for " + medication + ": ");
+                    if (item.idealQuantity != null && criticalThreshold >= item.idealQuantity) {
+                        System.out.println("  [ERROR] Critical threshold must be lower than the ideal stock amount.");
+                        continue;
+                    }
+                    item.criticalThreshold = criticalThreshold;
+                    updated = true;
+                    break;
+                }
+            }
+        }
+        if (updated) {
+            System.out.println();
+        }
+        return updated;
+    }
+
+    private int promptForPositiveInteger(Scanner scanner, String prompt) {
+        while (true) {
+            System.out.print(prompt);
+            String input = scanner.nextLine().trim();
+            try {
+                int value = Integer.parseInt(input);
+                if (value <= 0) {
+                    System.out.println("  [ERROR] Please enter a positive whole number.");
+                    continue;
+                }
+                return value;
+            } catch (NumberFormatException e) {
+                System.out.println("  [ERROR] Please enter a numeric value.");
+            }
+        }
+    }
+
+    private List<String> createAutomaticReorders(Map<String, InventoryItem> inventory) {
+        ArrayList<String> messages = new ArrayList<>();
+        List<PurchaseOrder> orders = loadPurchaseOrders();
+
+        List<String> medicationNames = new ArrayList<>(inventory.keySet());
+        medicationNames.sort(String.CASE_INSENSITIVE_ORDER);
+
+        for (String medication : medicationNames) {
+            InventoryItem item = inventory.get(medication);
+            if (item.idealQuantity == null || item.criticalThreshold == null) {
+                continue;
+            }
+            if (item.quantity > item.criticalThreshold) {
+                continue;
+            }
+            if (hasPendingPurchaseOrder(orders, medication)) {
+                continue;
+            }
+
+            int reorderQuantity = Math.max(item.idealQuantity - item.quantity, 1);
+            String orderId = nextPurchaseOrderId(orders);
+            orders.add(new PurchaseOrder(orderId, medication, reorderQuantity, "Pending Delivery"));
+            messages.add("  - Auto-ordered " + medication + " (Qty: " + reorderQuantity + ") as stock reached critical threshold.");
+        }
+
+        if (!messages.isEmpty()) {
+            saveAllPurchaseOrders(orders);
+        }
+
+        return messages;
+    }
+
+    private boolean hasPendingPurchaseOrder(List<PurchaseOrder> orders, String medicationName) {
+        for (PurchaseOrder order : orders) {
+            if (order.medicationName.equalsIgnoreCase(medicationName) && "Pending Delivery".equalsIgnoreCase(order.status)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String nextPurchaseOrderId(List<PurchaseOrder> orders) {
+        String base = "PO" + System.currentTimeMillis();
+        String candidate = base;
+        int suffix = 1;
+        while (purchaseOrderIdExists(orders, candidate)) {
+            candidate = base + "-" + suffix++;
+        }
+        return candidate;
+    }
+
+    private boolean purchaseOrderIdExists(List<PurchaseOrder> orders, String orderId) {
+        for (PurchaseOrder order : orders) {
+            if (order.orderId.equalsIgnoreCase(orderId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // CSV escaping: wrap in quotes if contains comma or quote, double quotes inside
@@ -726,6 +867,13 @@ public class PharmacyService {
         // Pad with empty strings if missing columns
         while (result.size() < expectedCols) result.add("");
         return result.toArray(new String[0]);
+    }
+
+    private Integer parseOptionalInteger(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return Integer.parseInt(value.trim());
     }
 
     private static class PurchaseOrder {
@@ -768,9 +916,17 @@ public class PharmacyService {
 
     private static class InventoryItem {
         int quantity;
+        Integer idealQuantity;
+        Integer criticalThreshold;
 
         InventoryItem(int quantity) {
+            this(quantity, null, null);
+        }
+
+        InventoryItem(int quantity, Integer idealQuantity, Integer criticalThreshold) {
             this.quantity = quantity;
+            this.idealQuantity = idealQuantity;
+            this.criticalThreshold = criticalThreshold;
         }
     }
 }
