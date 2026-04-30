@@ -13,9 +13,11 @@ import objects.Patient;
 public class PatientsService {
     private static String patientIDTag = "P";
     private final Path patientBillingPath;
+    private final Path administrationLogPath;
 
-    public PatientsService(Path patientBillingPath) {
-        this.patientBillingPath = patientBillingPath.resolve("patients_billing.csv");
+    public PatientsService(Path dataDir) {
+        this.patientBillingPath = dataDir.resolve("patients_billing.csv");
+        this.administrationLogPath = dataDir.resolve("medication_administrations.csv");
     }
 
     public static void createService(Scanner scanner, List<Patient> patients, PatientsService service, RoomService roomService,Runnable onSave)
@@ -34,6 +36,7 @@ public class PatientsService {
         System.out.println("  [6] View Patient Bills");
         System.out.println("  [7] View All Bills");
         System.out.println("  [8] Record Patient Vitals");
+        System.out.println("  [9] Administration History");
         System.out.print("\n  Select type (or 'q' to return): ");
         String type = scanner.nextLine().trim();
         if (type.equalsIgnoreCase("q")) return;
@@ -248,8 +251,8 @@ public class PatientsService {
             }
         }
         else if (type.equals("8")) {
-            recordPatientVitals(scanner, patients, onSave);
-        } else {
+            recordPatientVitals(scanner, patients, onSave);        } else if (type.equals("9")) {
+            showAdministrationHistory(scanner, patients, service);        } else {
             System.out.println("\n  Invalid selection.");
         }
         System.out.println("  Press Enter to return to menu...");
@@ -390,6 +393,86 @@ public class PatientsService {
     System.out.println("  Vitals recorded for " + patient.getName() + ".");
 
 }
+
+    private static void showAdministrationHistory(Scanner scanner, List<Patient> patients, PatientsService service) {
+        System.out.print("\033[H\033[2J\033[3J");
+        System.out.flush();
+        System.out.println("\n  === Administration History ===\n");
+
+        if (patients.isEmpty()) {
+            System.out.println("  No patients in the system.");
+            System.out.println("  Press Enter to return to menu...");
+            scanner.nextLine();
+            return;
+        }
+
+        for (int i = 0; i < patients.size(); i++) {
+            Patient p = patients.get(i);
+            System.out.println("  [" + (i + 1) + "] " + p.getName() + "  (ID: " + p.getPatientId() + ")");
+        }
+
+        System.out.print("\n  Select patient (or 'q' to return): ");
+        String sel = scanner.nextLine().trim();
+        if (sel.equalsIgnoreCase("q")) return;
+
+        int idx;
+        try {
+            idx = Integer.parseInt(sel) - 1;
+        } catch (NumberFormatException e) {
+            System.out.println("\n  Invalid selection.");
+            System.out.println("  Press Enter to return to menu...");
+            scanner.nextLine();
+            return;
+        }
+        if (idx < 0 || idx >= patients.size()) {
+            System.out.println("\n  Invalid selection.");
+            System.out.println("  Press Enter to return to menu...");
+            scanner.nextLine();
+            return;
+        }
+
+        Patient patient = patients.get(idx);
+        List<String[]> history = service.getAdministrationHistory(patient.getPatientId());
+
+        System.out.print("\033[H\033[2J\033[3J");
+        System.out.flush();
+        System.out.println("\n  === Administration History — " + patient.getName() + " ===\n");
+
+        if (history.isEmpty()) {
+            System.out.println("  No administrations recorded for this patient.");
+        } else {
+            // columns: LogId[0], PrescriptionId[1], PatientId[2], PatientName[3],
+            //          MedicationName[4], Dosage[5], AmountAdministered[6], AdministeredBy[7], Timestamp[8]
+            for (int i = 0; i < history.size(); i++) {
+                String[] row = history.get(i);
+                System.out.println("  [" + (i + 1) + "] " + row[8]
+                        + "  |  " + row[4]
+                        + "  —  " + row[5]
+                        + "  |  Amount: " + row[6]
+                        + "  |  By: " + row[7]
+                        + "  |  Rx: " + row[1]);
+            }
+        }
+    }
+
+    private List<String[]> getAdministrationHistory(String patientId) {
+        List<String[]> result = new ArrayList<>();
+        try {
+            if (!Files.exists(administrationLogPath)) return result;
+            List<String> lines = Files.readAllLines(administrationLogPath);
+            for (int i = 1; i < lines.size(); i++) {
+                String line = lines.get(i);
+                if (line.isBlank()) continue;
+                String[] parts = parseCsvLine(line, 9);
+                if (parts.length >= 9 && parts[2].equalsIgnoreCase(patientId)) {
+                    result.add(parts);
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("  Warning: could not read administration log: " + e.getMessage());
+        }
+        return result;
+    }
 
     private static void showPatientDetails(Patient patient) {
         System.out.print("\033[H\033[2J\033[3J");

@@ -3,7 +3,10 @@ package services;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -16,11 +19,13 @@ public class PharmacyService {
     private final Path inventoryFile;
     private final Path prescriptionsFile;
     private final Path purchaseOrdersFile;
+    private final Path administrationLogFile;
 
     public PharmacyService(Path dataDir) {
         this.inventoryFile = dataDir.resolve("pharmacy_inventory.csv");
         this.prescriptionsFile = dataDir.resolve("prescriptions.csv");
         this.purchaseOrdersFile = dataDir.resolve("purchase_orders.csv");
+        this.administrationLogFile = dataDir.resolve("medication_administrations.csv");
     }
 
     public void initializeFiles() {
@@ -33,6 +38,10 @@ public class PharmacyService {
             }
             if (!Files.exists(purchaseOrdersFile)) {
                 Files.createFile(purchaseOrdersFile);
+            }
+            if (!Files.exists(administrationLogFile)) {
+                Files.write(administrationLogFile,
+                    java.util.List.of("LogId,PrescriptionId,PatientId,PatientName,MedicationName,Dosage,AmountAdministered,AdministeredBy,Timestamp"));
             }
         } catch (IOException e) {
             System.out.println("Error initializing pharmacy files: " + e.getMessage());
@@ -207,7 +216,7 @@ public class PharmacyService {
                 savePatientsCallback.run();
 
                 String rxId = "RX" + System.currentTimeMillis();
-                Prescription newRx = new Prescription(rxId, selectedPatient.getPatientId(), selectedPatient.getName(), foundMedication, inst, qty, "pending", LocalDate.now().plusDays(30));
+                Prescription newRx = new Prescription(rxId, selectedPatient.getPatientId(), selectedPatient.getName(), foundMedication, inst, qty, 0, "pending", LocalDate.now().plusDays(30));
                 prescriptions.add(newRx);
                 savePrescriptions(prescriptions);
 
@@ -586,8 +595,8 @@ public class PharmacyService {
             for (int i = 1; i < lines.size(); i++) { // skip header
                 String line = lines.get(i);
                 if (line.isBlank()) continue;
-                String[] parts = parseCsvLine(line, 8);
-                if (parts.length != 8) continue;
+                String[] parts = parseCsvLine(line, 9);
+                if (parts.length < 8) continue;
                 LocalDate expiry = null;
                 if (!parts[7].isBlank()) {
                     try {
@@ -596,6 +605,10 @@ public class PharmacyService {
                         expiry = null;
                     }
                 }
+                int administered = 0;
+                if (parts.length > 8 && !parts[8].isBlank()) {
+                    try { administered = Integer.parseInt(parts[8]); } catch (NumberFormatException ignored) {}
+                }
                 Prescription p = new Prescription(
                         parts[0],
                         parts[1],
@@ -603,6 +616,7 @@ public class PharmacyService {
                         parts[3],
                         parts[4],
                         Integer.parseInt(parts[5]),
+                        administered,
                         parts[6],
                         expiry
                 );
@@ -649,7 +663,7 @@ public class PharmacyService {
 
     private void savePrescriptions(List<Prescription> prescriptions) {
         ArrayList<String> lines = new ArrayList<>();
-        lines.add("PrescriptionId,PatientId,PatientName,MedicationName,Dosage,RequiredQuantity,Status,ExpiryDate");
+        lines.add("PrescriptionId,PatientId,PatientName,MedicationName,Dosage,RequiredQuantity,Status,ExpiryDate,AdministeredQuantity");
         for (Prescription p : prescriptions) {
             lines.add(String.join(",",
                     escapeCsv(p.prescriptionId),
@@ -659,7 +673,8 @@ public class PharmacyService {
                     escapeCsv(p.dosage),
                     Integer.toString(p.requiredQuantity),
                     escapeCsv(p.status),
-                    p.expiryDate == null ? "" : p.expiryDate.toString()
+                    p.expiryDate == null ? "" : p.expiryDate.toString(),
+                    Integer.toString(p.administeredQuantity)
             ));
         }
         try {
@@ -694,6 +709,122 @@ public class PharmacyService {
         } catch (IOException e) {
             System.out.println("Error saving inventory: " + e.getMessage());
         }
+    }
+
+    /**
+     * Returns fully administered prescriptions for a patient as
+     * [prescriptionId, medicationName, dosage, requiredQuantity, administeredQuantity] arrays.
+     */
+    public List<String[]> getAdministeredPrescriptions(String patientId) {
+        List<Prescription> prescriptions = loadPrescriptions();
+        List<String[]> result = new ArrayList<>();
+        for (Prescription p : prescriptions) {
+            if (p.patientId.equalsIgnoreCase(patientId) && "administered".equalsIgnoreCase(p.status)) {
+                result.add(new String[]{
+                    p.prescriptionId,
+                    p.medicationName,
+                    p.dosage,
+                    Integer.toString(p.requiredQuantity),
+                    Integer.toString(p.administeredQuantity)
+                });
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Creates a new pending prescription (refill) based on an existing administered prescription.
+     * Returns true if the original was found and the refill was saved.
+     */
+    public boolean createRefillRequest(String originalPrescriptionId) {
+        List<Prescription> prescriptions = loadPrescriptions();
+        Prescription original = null;
+        for (Prescription p : prescriptions) {
+            if (p.prescriptionId.equals(originalPrescriptionId)) {
+                original = p;
+                break;
+            }
+        }
+        if (original == null) return false;
+        String newRxId = "RX" + System.currentTimeMillis();
+        Prescription refill = new Prescription(
+                newRxId,
+                original.patientId,
+                original.patientName,
+                original.medicationName,
+                original.dosage,
+                original.requiredQuantity,
+                0,
+                "pending",
+                LocalDate.now().plusDays(30)
+        );
+        prescriptions.add(refill);
+        savePrescriptions(prescriptions);
+        return true;
+    }
+
+    /**
+     * Returns fulfilled prescriptions for a patient as
+     * [prescriptionId, medicationName, dosage, requiredQuantity, administeredQuantity] arrays.
+     */
+    public List<String[]> getAdministerablePrescriptions(String patientId) {
+        List<Prescription> prescriptions = loadPrescriptions();
+        List<String[]> result = new ArrayList<>();
+        for (Prescription p : prescriptions) {
+            if (p.patientId.equalsIgnoreCase(patientId) && "fulfilled".equalsIgnoreCase(p.status)) {
+                result.add(new String[]{
+                    p.prescriptionId,
+                    p.medicationName,
+                    p.dosage,
+                    Integer.toString(p.requiredQuantity),
+                    Integer.toString(p.administeredQuantity)
+                });
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Appends one row to medication_administrations.csv for audit/record purposes.
+     */
+    public void logAdministration(String prescriptionId, String patientId, String patientName,
+            String medicationName, String dosage, int amount, String administeredBy) {
+        try {
+            String logId = "ADM" + System.currentTimeMillis();
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            String line = String.join(",",
+                    escapeCsv(logId),
+                    escapeCsv(prescriptionId),
+                    escapeCsv(patientId),
+                    escapeCsv(patientName),
+                    escapeCsv(medicationName),
+                    escapeCsv(dosage),
+                    Integer.toString(amount),
+                    escapeCsv(administeredBy),
+                    escapeCsv(timestamp)
+            );
+            Files.write(administrationLogFile, java.util.List.of(line), StandardOpenOption.APPEND);
+        } catch (IOException e) {
+            System.out.println("  Warning: could not write administration log: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Records that {@code amount} units were administered for the given prescription.
+     * Status is set to "administered" once administeredQuantity >= requiredQuantity.
+     */
+    public void administerDose(String prescriptionId, int amount) {
+        List<Prescription> prescriptions = loadPrescriptions();
+        for (Prescription p : prescriptions) {
+            if (p.prescriptionId.equals(prescriptionId)) {
+                p.administeredQuantity += amount;
+                if (p.administeredQuantity >= p.requiredQuantity) {
+                    p.status = "administered";
+                }
+                break;
+            }
+        }
+        savePrescriptions(prescriptions);
     }
 
     // CSV escaping: wrap in quotes if contains comma or quote, double quotes inside
@@ -749,18 +880,20 @@ public class PharmacyService {
         String medicationName;
         String dosage;
         int requiredQuantity;
+        int administeredQuantity;
         String status;
         LocalDate expiryDate;
 
         Prescription(String prescriptionId, String patientId, String patientName,
                      String medicationName, String dosage, int requiredQuantity,
-                     String status, LocalDate expiryDate) {
+                     int administeredQuantity, String status, LocalDate expiryDate) {
             this.prescriptionId = prescriptionId;
             this.patientId = patientId;
             this.patientName = patientName;
             this.medicationName = medicationName;
             this.dosage = dosage;
             this.requiredQuantity = requiredQuantity;
+            this.administeredQuantity = administeredQuantity;
             this.status = status;
             this.expiryDate = expiryDate;
         }

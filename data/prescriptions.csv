@@ -1,6 +1,8 @@
-PrescriptionId,PatientId,PatientName,MedicationName,Dosage,RequiredQuantity,Status,ExpiryDate
-RX-1002,P1002,James Carter,Heparin,"5,000 units",5,invalid,2026-04-20
-RX1776183332924,P1002,James Carter,Ibuprofen,"8000mg, Oral, daily for 30 days",8000,fulfilled,2026-05-14
-RX1776186586637,P1001,Maria Lopez,Heparin,"500, Oral, Daily for 7 days",3,fulfilled,2026-05-14
-RX1776988536646,P1002,James Carter,Heparin,"100, Oral, Once daily for 7 days",700,fulfilled,2026-05-23
-RX1776988726927,P1002,James Carter,Cocaine,"500mg, Oral, Once Hourly for Forver",1000000,fulfilled,2026-05-23
+PrescriptionId,PatientId,PatientName,MedicationName,Dosage,RequiredQuantity,Status,ExpiryDate,AdministeredQuantity
+RX-1002,P1002,James Carter,Heparin,"5,000 units",5,invalid,2026-04-20,0
+RX1776183332924,P1002,James Carter,Ibuprofen,"8000mg, Oral, daily for 30 days",8000,administered,2026-05-14,0
+RX1776186586637,P1001,Maria Lopez,Heparin,"500, Oral, Daily for 7 days",3,fulfilled,2026-05-14,0
+RX1776988536646,P1002,James Carter,Heparin,"100, Oral, Once daily for 7 days",700,fulfilled,2026-05-23,2
+RX1776988726927,P1002,James Carter,Cocaine,"500mg, Oral, Once Hourly for Forver",1000000,fulfilled,2026-05-23,0
+RX-TEST-REFILL,P1001,Maria Lopez,Aspirin,"100mg, Oral, Once daily for 5 days",5,administered,2026-05-30,5
+RX1777530784560,P1001,Maria Lopez,Aspirin,"100mg, Oral, Once daily for 5 days",5,pending,2026-05-30,0

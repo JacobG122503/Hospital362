@@ -26,12 +26,14 @@ public class RoomService {
     private final Path equipmentPath;
     private final Queue<CleaningRequest> cleaningQueue = new LinkedList<>();
     private final PatientVitalsCsvService vitalsCsvService;
+    private final PharmacyService pharmacyService;
 
     public RoomService(Path dataDir) {
         this.roomsPath = dataDir.resolve("rooms.csv");
         this.cleaningRequestsPath = dataDir.resolve("cleaning_requests.csv");
         this.equipmentPath = dataDir.resolve("equipment.csv");
         this.vitalsCsvService = new PatientVitalsCsvService(dataDir);
+        this.pharmacyService = new PharmacyService(dataDir);
     }
 
     public void initializeFile() {
@@ -295,8 +297,17 @@ public class RoomService {
         System.out.println("  Available Rooms:");
         for (int i = 0; i < rooms.size(); i++) {
             Room r = rooms.get(i);
+            String occupantInfo = "";
+            if ("Occupied".equalsIgnoreCase(r.getStatus())) {
+                for (Patient p : patients) {
+                    if (r.getRoomNum().equalsIgnoreCase(p.getRoomNumber()) && !"discharged".equalsIgnoreCase(p.getStatus())) {
+                        occupantInfo = "  —  " + p.getName();
+                        break;
+                    }
+                }
+            }
             System.out.println("  [" + (i + 1) + "] Room " + r.getRoomNum()
-                    + "  (Status: " + r.getStatus() + ")");
+                    + "  (Status: " + r.getStatus() + ")" + occupantInfo);
         }
 
         System.out.print("\n  Select room number (or 'q' to return): ");
@@ -334,6 +345,7 @@ public class RoomService {
         }
         if (roomPatient != null) {
             System.out.println("  [3] Record patient vitals");
+            System.out.println("  [4] Administer medication");
         }
         System.out.print("\n  Select an option (or 'q' to return): ");
         String roomOption = scanner.nextLine().trim();
@@ -345,6 +357,8 @@ public class RoomService {
             requestEquipmentMaintenance(scanner, nurseName, selectedRoom);
         } else if ("3".equals(roomOption) && roomPatient != null) {
             recordVitalsForRoomPatient(scanner, roomPatient, onSave);
+        } else if ("4".equals(roomOption) && roomPatient != null) {
+            administerMedication(scanner, nurseName, roomPatient, onSave);
         } else {
             System.out.println("\n  Invalid selection.");
             System.out.println("  Press Enter to return...");
@@ -487,6 +501,165 @@ public class RoomService {
     System.out.println("  Press Enter to return...");
     scanner.nextLine();
 }
+
+    // Nurse workflow: administer a fulfilled prescription to a patient
+    private void administerMedication(Scanner scanner, String nurseName, Patient patient, Runnable onSave) {
+        System.out.print("\033[H\033[2J\033[3J");
+        System.out.flush();
+        System.out.println("\n  === Administer Medication — " + patient.getName() + " ===\n");
+
+        List<String[]> prescriptions = pharmacyService.getAdministerablePrescriptions(patient.getPatientId());
+
+        if (prescriptions.isEmpty()) {
+            System.out.println("  No fulfilled prescriptions available to administer for this patient.");
+
+            List<String[]> administered = pharmacyService.getAdministeredPrescriptions(patient.getPatientId());
+            if (administered.isEmpty()) {
+                System.out.println("  (Prescriptions must be dispensed by the pharmacist before a nurse can administer them.)");
+                System.out.println("\n  Press Enter to return...");
+                scanner.nextLine();
+                return;
+            }
+
+            System.out.println("  The following prescriptions have been fully administered and may need a refill:");
+            for (int i = 0; i < administered.size(); i++) {
+                String[] rx = administered.get(i);
+                System.out.println("  [" + (i + 1) + "] " + rx[1] + "  —  " + rx[2]
+                        + "  |  Qty: " + rx[3] + "  (Rx ID: " + rx[0] + ")");
+            }
+            System.out.print("\n  Request a refill? Enter number (or 'n' to return): ");
+            String refillSel = scanner.nextLine().trim();
+            if (!refillSel.equalsIgnoreCase("n")) {
+                try {
+                    int refillIdx = Integer.parseInt(refillSel) - 1;
+                    if (refillIdx >= 0 && refillIdx < administered.size()) {
+                        String[] rx = administered.get(refillIdx);
+                        boolean ok = pharmacyService.createRefillRequest(rx[0]);
+                        if (ok) {
+                            System.out.println("\n  Refill request submitted for " + rx[1] + ".");
+                            System.out.println("  The pharmacist will need to fulfill it before you can administer.");
+                        } else {
+                            System.out.println("\n  Could not create refill request. Please contact the pharmacist.");
+                        }
+                    } else {
+                        System.out.println("\n  Invalid selection.");
+                    }
+                } catch (NumberFormatException e) {
+                    System.out.println("\n  Invalid selection.");
+                }
+            }
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+
+        System.out.println("  Prescriptions ready to administer:");
+        for (int i = 0; i < prescriptions.size(); i++) {
+            // rx = [prescriptionId, medicationName, dosage, requiredQuantity, administeredQuantity]
+            String[] rx = prescriptions.get(i);
+            int required = Integer.parseInt(rx[3]);
+            int administered = Integer.parseInt(rx[4]);
+            int remaining = required - administered;
+            System.out.println("  [" + (i + 1) + "] " + rx[1] + "  —  " + rx[2]
+                    + "  |  Prescribed: " + required + "  Administered: " + administered
+                    + "  Remaining: " + remaining
+                    + "  (Rx ID: " + rx[0] + ")");
+        }
+
+        System.out.print("\n  Select prescription to administer (or 'q' to return): ");
+        String sel = scanner.nextLine().trim();
+        if (sel.equalsIgnoreCase("q")) return;
+
+        int idx;
+        try {
+            idx = Integer.parseInt(sel) - 1;
+        } catch (NumberFormatException e) {
+            System.out.println("\n  Invalid selection.");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+        if (idx < 0 || idx >= prescriptions.size()) {
+            System.out.println("\n  Invalid selection.");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+
+        String[] selectedRx = prescriptions.get(idx);
+        int required = Integer.parseInt(selectedRx[3]);
+        int alreadyAdministered = Integer.parseInt(selectedRx[4]);
+        int remaining = required - alreadyAdministered;
+
+        System.out.println("\n  Medication    : " + selectedRx[1]);
+        System.out.println("  Instructions  : " + selectedRx[2]);
+        System.out.println("  Prescribed    : " + required);
+        System.out.println("  Administered  : " + alreadyAdministered);
+        System.out.println("  Remaining     : " + remaining);
+
+        System.out.print("\n  Enter amount to administer: ");
+        String amtStr = scanner.nextLine().trim();
+        int amount;
+        try {
+            amount = Integer.parseInt(amtStr);
+        } catch (NumberFormatException e) {
+            System.out.println("\n  Invalid amount.");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+        if (amount <= 0) {
+            System.out.println("\n  Amount must be greater than zero.");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+        if (amount > remaining) {
+            System.out.println("\n  Amount exceeds remaining quantity (" + remaining + ").");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+
+        System.out.print("\n  Confirm administering " + amount + " of " + selectedRx[1] + "? (y/n): ");
+        String confirm = scanner.nextLine().trim();
+        if (!confirm.equalsIgnoreCase("y")) {
+            System.out.println("\n  Administration cancelled.");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+
+        pharmacyService.administerDose(selectedRx[0], amount);
+        pharmacyService.logAdministration(
+                selectedRx[0],
+                patient.getPatientId(),
+                patient.getName(),
+                selectedRx[1],
+                selectedRx[2],
+                amount,
+                nurseName
+        );
+        onSave.run();
+        int newRemaining = remaining - amount;
+        if (newRemaining == 0) {
+            System.out.println("\n  Administered. Prescription fully completed.");
+            System.out.print("  Request a refill for " + selectedRx[1] + "? (y/n): ");
+            String refillConfirm = scanner.nextLine().trim();
+            if (refillConfirm.equalsIgnoreCase("y")) {
+                boolean ok = pharmacyService.createRefillRequest(selectedRx[0]);
+                if (ok) {
+                    System.out.println("  Refill request submitted. The pharmacist will need to fulfill it before the next administration.");
+                } else {
+                    System.out.println("  Could not submit refill request. Please contact the pharmacist.");
+                }
+            }
+        } else {
+            System.out.println("\n  Administered " + amount + ". Remaining: " + newRemaining + ".");
+        }
+        System.out.println("  Press Enter to return...");
+        scanner.nextLine();
+    }
 
     private void requestRoomCleaning(Scanner scanner, String nurseName,
             List<Room> rooms, Room selectedRoomObj, String selectedRoom) {
