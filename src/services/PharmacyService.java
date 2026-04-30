@@ -70,7 +70,6 @@ public class PharmacyService {
         }
 
         List<String> autoOrderMessages = createAutomaticReorders(inventory);
-
         ArrayList<String> understockedMedications = new ArrayList<>();
         System.out.println("  Inventory Audit Report:\n");
         System.out.printf("  %-24s %-15s %-15s %-15s%n", "Medication", "Current", "Ideal", "Difference");
