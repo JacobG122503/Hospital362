@@ -1,5 +1,4 @@
-Medication,Quantity
-Amoxicillin,315
-Cocaine,0
-Heparin,387
-Ibuprofen,72900
+Medication,Quantity,IdealQuantity,CriticalThreshold
+Amoxicillin,80,100,20
+Heparin,2001,200,30
+Ibuprofen,90,1000,100
