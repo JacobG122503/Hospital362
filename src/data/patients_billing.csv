@@ -1,0 +1,5 @@
+PatientID,PatientName,Description,IsPaid,Amount
+P1001,Maria Lopez,ddd,Blue Cross,true,5000
+P1002,James Carter,Stuff,Aetna,true,2000
+P1001,Maria Lopez,dnmjansd,Blue Cross,true,1950
+P1001,Maria Lopez,dnjads,Blue Cross,true,8

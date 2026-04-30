@@ -38,6 +38,8 @@ public class PatientsService {
         System.out.println("  [8] Record Patient Vitals");
         System.out.println("  [9] Administration History");
         System.out.println("  [10] Change Patient Room");
+        System.out.println("  [11] Update Patient Info");
+
         System.out.print("\n  Select type (or 'q' to return): ");
         String type = scanner.nextLine().trim();
         if (type.equalsIgnoreCase("q")) return;
@@ -258,7 +260,82 @@ public class PatientsService {
         } else if (type.equals("10")) {
             RoomTransferService.runChangePatientRoomFlow(scanner, patients, roomService, onSave);
             return;
-        } else {
+        } else if (type.equals("11")) {
+            Patient selectedPatient = null;
+            System.out.println("Select a Patient ID from the following List: \n");
+            for(Patient p : patients)
+            {
+                System.out.println("[" + p.getPatientId() + "] " + p.getName());
+            }
+            String patientID = scanner.nextLine().trim().toLowerCase();
+            System.out.print("  ID: " + patientID);
+            for(Patient p2 : patients)
+            {
+                if(p2.getPatientId().toLowerCase().equals(patientID))
+                {
+                    selectedPatient = p2;
+                    break;
+                }
+            }
+            if(selectedPatient == null)
+            {
+                System.out.println("Patient ID not found");
+                System.out.println("  Press Enter to return to menu...");
+                scanner.nextLine();
+                return;
+            }
+            System.out.println("Selected: " + selectedPatient.getName());
+            System.out.println("\n  Updating info for: " + selectedPatient.getName());
+            System.out.println("  [1] Name: " + selectedPatient.getName());
+            System.out.println("  [2] Age: " + selectedPatient.getAge());
+            System.out.println("  [3] Gender: " + selectedPatient.getGender());
+            System.out.println("  [4] Address: " + selectedPatient.getAddress());
+            System.out.println("  [5] Insurance: " + selectedPatient.getInsuranceProvider());
+            System.out.print("\n  Select field to update: ");
+
+            String option = scanner.nextLine().trim();
+
+            if (option.equals("1"))
+            {
+                System.out.print("Enter New Name: ");
+                selectedPatient.setName(scanner.nextLine().trim());
+            }
+            else if (option.equals("2"))
+            {
+                System.out.print("Enter New Age: ");
+                try
+                {
+                    selectedPatient.setAge(Integer.parseInt(scanner.nextLine().trim()));
+                }
+                catch (Exception e)
+                {
+                    System.out.println("Input a valid number.");
+                }
+            }
+            else if (option.equals("3"))
+            {
+                System.out.print("Enter New Gender: ");
+                selectedPatient.setGender(scanner.nextLine().trim());
+            }
+            else if (option.equals("4"))
+            {
+                System.out.print("Enter New Address: ");
+                selectedPatient.setAddress(scanner.nextLine().trim());
+            }
+            else if (option.equals("5"))
+            {
+                System.out.print("Enter New Insurance: ");
+                selectedPatient.setInsuranceProvider(scanner.nextLine().trim());
+            }
+            else
+            {
+                System.out.println("Option not found");
+            }
+
+            onSave.run();
+            System.out.println("Patient information updated");
+        }
+        else {
             System.out.println("\n  Invalid selection.");
         }
         System.out.println("  Press Enter to return to menu...");
