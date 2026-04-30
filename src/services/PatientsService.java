@@ -37,6 +37,7 @@ public class PatientsService {
         System.out.println("  [7] View All Bills");
         System.out.println("  [8] Record Patient Vitals");
         System.out.println("  [9] Administration History");
+        System.out.println("  [10] Change Patient Room");
         System.out.print("\n  Select type (or 'q' to return): ");
         String type = scanner.nextLine().trim();
         if (type.equalsIgnoreCase("q")) return;
@@ -251,8 +252,13 @@ public class PatientsService {
             }
         }
         else if (type.equals("8")) {
-            recordPatientVitals(scanner, patients, onSave);        } else if (type.equals("9")) {
-            showAdministrationHistory(scanner, patients, service);        } else {
+            recordPatientVitals(scanner, patients, onSave);
+        } else if (type.equals("9")) {
+            showAdministrationHistory(scanner, patients, service);
+        } else if (type.equals("10")) {
+            RoomTransferService.runChangePatientRoomFlow(scanner, patients, roomService, onSave);
+            return;
+        } else {
             System.out.println("\n  Invalid selection.");
         }
         System.out.println("  Press Enter to return to menu...");

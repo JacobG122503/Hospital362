@@ -1,7 +1,7 @@
 RoomNum,Status
 201,Occupied
-305,Occupied
+305,Available
 400,Dirty
 112,Dirty
 317,Occupied
-999,Available
+999,Occupied

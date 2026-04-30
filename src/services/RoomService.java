@@ -260,6 +260,49 @@ public class RoomService {
         saveEquipment(equipment);
     }
 
+    /** Find a room by number, or null if it does not exist. */
+    public Room findRoomByNumber(String roomNumber) {
+        for (Room room : loadRooms()) {
+            if (room.getRoomNum().equalsIgnoreCase(roomNumber)) {
+                return room;
+            }
+        }
+        return null;
+    }
+
+    /** A room is transferable only when explicitly marked Available. */
+    public boolean isRoomAvailableForTransfer(String roomStatus) {
+        return roomStatus != null && roomStatus.equalsIgnoreCase("Available");
+    }
+
+    /**
+     * Transfer occupancy from one room to another.
+     * Returns false if either room does not exist.
+     */
+    public boolean transferPatientRoom(String fromRoomNumber, String toRoomNumber) {
+        List<Room> rooms = loadRooms();
+        Room fromRoom = null;
+        Room toRoom = null;
+
+        for (Room room : rooms) {
+            if (room.getRoomNum().equalsIgnoreCase(fromRoomNumber)) {
+                fromRoom = room;
+            }
+            if (room.getRoomNum().equalsIgnoreCase(toRoomNumber)) {
+                toRoom = room;
+            }
+        }
+
+        if (fromRoom == null || toRoom == null) {
+            return false;
+        }
+
+        fromRoom.setStatus("Available");
+        toRoom.setStatus("Occupied");
+        saveRooms(rooms);
+        return true;
+    }
+
     /**
      * Remove equipment from a room by its 0-based index within that room's equipment list.
      * Returns false if the index is out of range.
