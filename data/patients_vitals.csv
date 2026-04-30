@@ -1,0 +1,2 @@
+PatientId,Timestamp,Temperature,BloodPressure,HeartRate,Notes,Dizziness,Nausea,ChestPain,Confusion,HasFainted,TroubleBreathing
+P1002,2026-04-29 20:29:22,98.0,120/70,120,need to test more,false,false,true,false,false,true

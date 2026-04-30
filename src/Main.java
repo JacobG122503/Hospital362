@@ -147,6 +147,11 @@ public class Main {
                     System.out.println("\n  === Employee Workspace: " + selected.getName() + " ===");
                     System.out.println("  Department: " + selected.getDepartment() + " | Role: " + selected.getRole() + "\n");
                     int optNum = 1;
+                    int alertsOpt = -1;
+                    if (doctor) {
+                        System.out.println("  [" + optNum + "] Alerts");
+                        alertsOpt = optNum++;
+                    }
                     if (doctor)     System.out.println("  [" + optNum++ + "] Prescribe medication");
                     if (pharmacist) System.out.println("  [" + optNum++ + "] Dispense prescribed medication");
                     if (pharmacist) System.out.println("  [" + optNum++ + "] Audit medication inventory");
@@ -164,6 +169,13 @@ public class Main {
                     int opt = 1;
                     boolean handled = false;
                     if (doctor) {
+                        if (String.valueOf(opt).equals(empChoice)) {
+                            showAbnormalVitalsAlerts(scanner);
+                            handled = true;
+                        }
+                        opt++;
+                    }
+                    if (!handled && doctor) {
                         if (String.valueOf(opt).equals(empChoice)) {
                             prescribeMedicationWorkflow();
                             handled = true;
@@ -236,6 +248,7 @@ public class Main {
                     }
                 }
                 return;
+                
             }
         } catch (NumberFormatException ignored) {
             // Fall through to invalid selection message.
@@ -260,7 +273,7 @@ public class Main {
     private static boolean isPharmacist(Employee employee) {
         String department = employee.getDepartment() == null ? "" : employee.getDepartment();
         String role = employee.getRole() == null ? "" : employee.getRole();
-        return department.equalsIgnoreCase("Pharmacy") || role.toLowerCase().contains("pharmacist");
+               return department.equalsIgnoreCase("Pharmacy") || role.toLowerCase().contains("pharmacist");
     }
 
     private static boolean isNurse(Employee employee) {
@@ -271,6 +284,11 @@ public class Main {
     private static boolean isFacilitiesManagement(Employee employee) {
         String department = employee.getDepartment() == null ? "" : employee.getDepartment();
         return department.equalsIgnoreCase("Facilities Management");
+    }
+    
+    // Show abnormal vitals alerts for physicians
+    private static void showAbnormalVitalsAlerts(Scanner scanner) {
+        services.PatientVitalsCsvService.showAbnormalVitalsAlerts(patients, scanner);
     }
 
 }

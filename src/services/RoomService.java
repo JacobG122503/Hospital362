@@ -25,11 +25,13 @@ public class RoomService {
     private final Path cleaningRequestsPath;
     private final Path equipmentPath;
     private final Queue<CleaningRequest> cleaningQueue = new LinkedList<>();
+    private final PatientVitalsCsvService vitalsCsvService;
 
     public RoomService(Path dataDir) {
         this.roomsPath = dataDir.resolve("rooms.csv");
         this.cleaningRequestsPath = dataDir.resolve("cleaning_requests.csv");
         this.equipmentPath = dataDir.resolve("equipment.csv");
+        this.vitalsCsvService = new PatientVitalsCsvService(dataDir);
     }
 
     public void initializeFile() {
@@ -352,29 +354,139 @@ public class RoomService {
     }
 
     // Helper for nurse to record vitals for a patient in a room
-    private void recordVitalsForRoomPatient(Scanner scanner, Patient patient, Runnable onSave) {
-        System.out.print("\033[H\033[2J\033[3J");
-        System.out.flush();
-        System.out.println("\n  === Record Vitals for " + patient.getName() + " (Room " + patient.getRoomNumber() + ") ===\n");
-        try {
-            System.out.print("  Temperature (F): ");
-            double temp = Double.parseDouble(scanner.nextLine().trim());
-            System.out.print("  Blood Pressure (e.g., 120/80): ");
-            String bp = scanner.nextLine().trim();
-            System.out.print("  Heart Rate (bpm): ");
-            int hr = Integer.parseInt(scanner.nextLine().trim());
-            System.out.print("  Notes (optional): ");
-            String notes = scanner.nextLine().trim();
-            objects.PatientVitals vitals = new objects.PatientVitals(java.time.LocalDateTime.now(), temp, bp, hr, notes);
-            patient.addVitals(vitals);
-            onSave.run();
-            System.out.println("  Vitals recorded for " + patient.getName() + ".");
-        } catch (Exception e) {
-            System.out.println("  Invalid input. Vitals not recorded.");
+   private void recordVitalsForRoomPatient(Scanner scanner, Patient patient, Runnable onSave) {
+    System.out.print("\033[H\033[2J\033[3J");
+    System.out.flush();
+    System.out.println("\n  === Record Vitals for " + patient.getName() + " (Room " + patient.getRoomNumber() + ") ===\n");
+
+
+    try {
+        boolean abnormal = false;
+        // Temperature
+        System.out.print("  Temperature (F): ");
+        String tempInput = scanner.nextLine().trim();
+        if (!tempInput.matches("-?\\d+(\\.\\d+)?")) {
+            System.out.println("  Invalid temperature: must be a numeric value (e.g., 98.6).");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
         }
-        System.out.println("  Press Enter to return...");
-        scanner.nextLine();
+        double temp = Double.parseDouble(tempInput);
+        if (temp < 80.0 || temp > 115.0) {
+            System.out.println("  Invalid temperature: must be between 80°F and 115°F.");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+        // Immediate temperature abnormal flag
+        objects.PatientVitals tempCheck = new objects.PatientVitals(java.time.LocalDateTime.now(), temp, "120/80", 80, "");
+        if (tempCheck.isTemperatureAbnormal(patient.getAge())) {
+            System.out.println("  WARNING: Temperature is ABNORMAL for this patient's age group!");
+            abnormal = true;
+        }
+        String feverGrade = tempCheck.getFeverGrade();
+        if (!"None".equals(feverGrade)) {
+            System.out.println("  Fever detected: " + feverGrade + " fever.");
+        }
+
+        // Blood Pressure
+        System.out.print("  Blood Pressure (e.g., 120/80): ");
+        String bp = scanner.nextLine().trim();
+        if (!bp.matches("\\d{2,3}/\\d{2,3}")) {
+            System.out.println("  Invalid blood pressure: must be in format systolic/diastolic (e.g., 120/80).");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+        String[] bpParts = bp.split("/");
+        int systolic = Integer.parseInt(bpParts[0]);
+        int diastolic = Integer.parseInt(bpParts[1]);
+        if (systolic < 50 || systolic > 250 || diastolic < 30 || diastolic > 150) {
+            System.out.println("  Invalid blood pressure: values out of physiological range.");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+        // Immediate blood pressure abnormal flag
+        objects.PatientVitals bpCheck = new objects.PatientVitals(java.time.LocalDateTime.now(), temp, bp, 80, "");
+        if (bpCheck.isBloodPressureAbnormal(patient.getAge())) {
+            System.out.println("  WARNING: Blood pressure is ABNORMAL for this patient's age group!");
+            abnormal = true;
+        }
+
+        // Heart Rate
+        System.out.print("  Heart Rate (bpm): ");
+        String hrInput = scanner.nextLine().trim();
+        if (!hrInput.matches("\\d+")) {
+            System.out.println("  Invalid heart rate: must be a whole number (e.g., 72).");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+        int hr = Integer.parseInt(hrInput);
+        if (hr < 20 || hr > 300) {
+            System.out.println("  Invalid heart rate: must be between 20 and 300 bpm.");
+            System.out.println("  Press Enter to return...");
+            scanner.nextLine();
+            return;
+        }
+        // Immediate heart rate abnormal flag
+        objects.PatientVitals hrCheck = new objects.PatientVitals(java.time.LocalDateTime.now(), temp, bp, hr, "");
+        if (hrCheck.isHeartRateAbnormal(patient.getAge())) {
+            System.out.println("  WARNING: Heart rate is ABNORMAL for this patient's age group!");
+            abnormal = true;
+        }
+
+        // Notes
+        System.out.print("  Notes (optional): ");
+        String notes = scanner.nextLine().trim();
+
+        boolean dizziness = false, nausea = false, chestPain = false, confusion = false, hasFainted = false, troubleBreathing = false;
+        if (abnormal) {
+            System.out.println("\n  One or more vitals are abnormal.");
+            // Prompt for symptoms
+            System.out.println("  Is the patient experiencing any of the following symptoms? (y/n)");
+            System.out.print("    Dizziness: ");
+            String input = scanner.nextLine().trim();
+            dizziness = input.equalsIgnoreCase("y") || input.equalsIgnoreCase("yes");
+            System.out.print("    Nausea: ");
+            input = scanner.nextLine().trim();
+            nausea = input.equalsIgnoreCase("y") || input.equalsIgnoreCase("yes");
+            System.out.print("    Chest Pain: ");
+            input = scanner.nextLine().trim();
+            chestPain = input.equalsIgnoreCase("y") || input.equalsIgnoreCase("yes");
+            System.out.print("    Confusion: ");
+            input = scanner.nextLine().trim();
+            confusion = input.equalsIgnoreCase("y") || input.equalsIgnoreCase("yes");
+            System.out.print("    Has Fainted: ");
+            input = scanner.nextLine().trim();
+            hasFainted = input.equalsIgnoreCase("y") || input.equalsIgnoreCase("yes");
+            System.out.print("    Trouble Breathing: ");
+            input = scanner.nextLine().trim();
+            troubleBreathing = input.equalsIgnoreCase("y") || input.equalsIgnoreCase("yes");
+        }
+
+        objects.PatientVitals vitals = new objects.PatientVitals(
+            java.time.LocalDateTime.now(), temp, bp, hr, notes, dizziness, nausea, chestPain, confusion, hasFainted, troubleBreathing
+        );
+        patient.addVitals(vitals);
+        // Save to persistent CSV
+        if (vitalsCsvService != null) {
+            vitalsCsvService.savePatientVitals(patient.getPatientId(), vitals);
+        }
+        onSave.run();
+        System.out.println("\n  Vitals recorded for " + patient.getName() + ".");
+        if (abnormal) {
+            System.out.println("  An alert has been sent out. A doctor should be with you shortly.");
+        }
+
+    } catch (Exception e) {
+        System.out.println("  Unexpected error: " + e.getMessage() + ". Vitals not recorded.");
     }
+
+    System.out.println("  Press Enter to return...");
+    scanner.nextLine();
+}
 
     private void requestRoomCleaning(Scanner scanner, String nurseName,
             List<Room> rooms, Room selectedRoomObj, String selectedRoom) {
