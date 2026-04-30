@@ -158,6 +158,11 @@ public class Main {
                     System.out.println("\n  === Employee Workspace: " + selected.getName() + " ===");
                     System.out.println("  Department: " + selected.getDepartment() + " | Role: " + selected.getRole() + "\n");
                     int optNum = 1;
+                    int alertsOpt = -1;
+                    if (doctor) {
+                        System.out.println("  [" + optNum + "] Alerts");
+                        alertsOpt = optNum++;
+                    }
                     if (doctor)     System.out.println("  [" + optNum++ + "] Prescribe medication");
                     if (pharmacist) System.out.println("  [" + optNum++ + "] Dispense prescribed medication");
                     if (pharmacist) System.out.println("  [" + optNum++ + "] Audit medication inventory");
@@ -176,6 +181,14 @@ public class Main {
                     int opt = 1;
                     boolean handled = false;
                     if (doctor) {
+                        if (String.valueOf(opt).equals(empChoice)) {
+                            // Show abnormal vitals alerts for physicians
+                            services.PatientVitalsCsvService.showAbnormalVitalsAlerts(patients, scanner);
+                            handled = true;
+                        }
+                        opt++;
+                    }
+                    if (!handled && doctor) {
                         if (String.valueOf(opt).equals(empChoice)) {
                             prescribeMedicationWorkflow();
                             handled = true;
