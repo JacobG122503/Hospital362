@@ -17,6 +17,7 @@ public class Main {
     static final PharmacyService pharmacyService = new PharmacyService(Paths.get("data"));
     static final RoomService roomService = new RoomService(Paths.get("data"));
     static final SurgicalService surgicalService = new SurgicalService(Paths.get("data"));
+    static final PayrollService payrollService = new PayrollService(Paths.get("data"));
 
     public static void main(String[] args) {
         initializeData();
@@ -31,6 +32,7 @@ public class Main {
         roomService.initializeFile();
         roomService.loadQueue();
         surgicalService.initializeFile();
+        payrollService.initializeFile();
     }
 
     private static void showMainMenu() {
@@ -98,6 +100,14 @@ public class Main {
         return department.equalsIgnoreCase("Medical Services") || role.toLowerCase().contains("doctor") || role.toLowerCase().contains("physician") || role.toLowerCase().contains("surgeon");
     }
 
+    private static boolean isHR(Employee employee) {
+    String department = employee.getDepartment() == null ? "" : employee.getDepartment();
+    String role = employee.getRole() == null ? "" : employee.getRole();
+    return department.equalsIgnoreCase("Human Resources")
+            || role.toLowerCase().contains("hr")
+            || role.toLowerCase().contains("human resources");
+    }
+
     private static void employeeLogin() {
         System.out.print("\033[H\033[2J\033[3J");
         System.out.flush();
@@ -134,8 +144,9 @@ public class Main {
                 boolean nurse = isNurse(selected);
                 boolean facilities = isFacilitiesManagement(selected);
                 boolean doctor = isDoctor(selected);
+                boolean hr = isHR(selected);
 
-                if (!pharmacist && !nurse && !facilities && !doctor) {
+                if (!pharmacist && !nurse && !facilities && !doctor && !hr) {
                     System.out.println("\n  Press Enter to return to menu...");
                     scanner.nextLine();
                     return;
@@ -147,11 +158,6 @@ public class Main {
                     System.out.println("\n  === Employee Workspace: " + selected.getName() + " ===");
                     System.out.println("  Department: " + selected.getDepartment() + " | Role: " + selected.getRole() + "\n");
                     int optNum = 1;
-                    int alertsOpt = -1;
-                    if (doctor) {
-                        System.out.println("  [" + optNum + "] Alerts");
-                        alertsOpt = optNum++;
-                    }
                     if (doctor)     System.out.println("  [" + optNum++ + "] Prescribe medication");
                     if (pharmacist) System.out.println("  [" + optNum++ + "] Dispense prescribed medication");
                     if (pharmacist) System.out.println("  [" + optNum++ + "] Audit medication inventory");
@@ -161,6 +167,7 @@ public class Main {
                     if (facilities) System.out.println("  [" + optNum++ + "] Process cleaning queue");
                     if (doctor)     System.out.println("  [" + optNum++ + "] Schedule surgical procedure");
                     if (facilities) System.out.println("  [" + optNum++ + "] Manage rooms & equipment");
+                    if (hr)         System.out.println("  [" + optNum++ + "] Process employee payroll");
                     System.out.println("  [" + optNum + "] Return to main menu");
                     System.out.print("\n  Select option (or 'q' to return): ");
                     String empChoice = scanner.nextLine().trim();
@@ -169,13 +176,6 @@ public class Main {
                     int opt = 1;
                     boolean handled = false;
                     if (doctor) {
-                        if (String.valueOf(opt).equals(empChoice)) {
-                            showAbnormalVitalsAlerts(scanner);
-                            handled = true;
-                        }
-                        opt++;
-                    }
-                    if (!handled && doctor) {
                         if (String.valueOf(opt).equals(empChoice)) {
                             prescribeMedicationWorkflow();
                             handled = true;
@@ -243,12 +243,18 @@ public class Main {
                         }
                         opt++;
                     }
+                    if (!handled && hr) {
+                        if (String.valueOf(opt).equals(empChoice)) {
+                            payrollService.runProcessPayrollFlow(scanner, employees);
+                            handled = true;
+                        }
+                        opt++;
+                    }
                     if (!handled || String.valueOf(opt).equals(empChoice)) {
                         break;
                     }
                 }
                 return;
-                
             }
         } catch (NumberFormatException ignored) {
             // Fall through to invalid selection message.
@@ -273,7 +279,7 @@ public class Main {
     private static boolean isPharmacist(Employee employee) {
         String department = employee.getDepartment() == null ? "" : employee.getDepartment();
         String role = employee.getRole() == null ? "" : employee.getRole();
-               return department.equalsIgnoreCase("Pharmacy") || role.toLowerCase().contains("pharmacist");
+        return department.equalsIgnoreCase("Pharmacy") || role.toLowerCase().contains("pharmacist");
     }
 
     private static boolean isNurse(Employee employee) {
@@ -284,11 +290,6 @@ public class Main {
     private static boolean isFacilitiesManagement(Employee employee) {
         String department = employee.getDepartment() == null ? "" : employee.getDepartment();
         return department.equalsIgnoreCase("Facilities Management");
-    }
-    
-    // Show abnormal vitals alerts for physicians
-    private static void showAbnormalVitalsAlerts(Scanner scanner) {
-        services.PatientVitalsCsvService.showAbnormalVitalsAlerts(patients, scanner);
     }
 
 }
