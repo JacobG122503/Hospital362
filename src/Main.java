@@ -101,11 +101,12 @@ public class Main {
     }
 
     private static boolean isHR(Employee employee) {
-    String department = employee.getDepartment() == null ? "" : employee.getDepartment();
-    String role = employee.getRole() == null ? "" : employee.getRole();
-    return department.equalsIgnoreCase("Human Resources")
-            || role.toLowerCase().contains("hr")
-            || role.toLowerCase().contains("human resources");
+        String department = employee.getDepartment() == null ? "" : employee.getDepartment();
+        String role = employee.getRole() == null ? "" : employee.getRole();
+        return department.equalsIgnoreCase("Human Resources")
+                || department.equalsIgnoreCase("HR")
+                || role.toLowerCase().contains("hr")
+                || role.toLowerCase().contains("human resources");
     }
 
     private static void employeeLogin() {
