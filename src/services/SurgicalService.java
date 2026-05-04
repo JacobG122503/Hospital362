@@ -3,6 +3,7 @@ package services;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -123,8 +124,17 @@ public class SurgicalService {
         System.out.print("\n  Procedure name: ");
         String procedureName = scanner.nextLine().trim();
 
-        System.out.print("  Date (YYYY-MM-DD): ");
-        String date = scanner.nextLine().trim();
+        String date = null;
+        while (date == null) {
+            System.out.print("  Date (YYYY-MM-DD): ");
+            String input = scanner.nextLine().trim();
+            try {
+                LocalDate.parse(input);
+                date = input;
+            } catch (java.time.format.DateTimeParseException e) {
+                System.out.println("  Invalid date. Please use YYYY-MM-DD format.");
+            }
+        }
 
         // Step 5: Select operating room
         List<Room> rooms = roomService.loadRooms();
@@ -157,40 +167,47 @@ public class SurgicalService {
             return;
         }
 
-        String operatingRoom = rooms.get(roomIndex).getRoomNum();
+        Room selectedRoom = rooms.get(roomIndex);
+        String operatingRoom = selectedRoom.getRoomNum();
+
+        // Check for dirty room
+        if ("dirty".equalsIgnoreCase(selectedRoom.getStatus())
+        || "occupied".equalsIgnoreCase(selectedRoom.getStatus())) {
+        System.out.println("\n  Room " + operatingRoom + " is currently " 
+                + selectedRoom.getStatus().toLowerCase() + " and cannot be used for surgery.");
+        System.out.println("  Please select an available room.");
+            pause(scanner);
+            return;
+        }
 
         // Step 6: Check for room conflict on that date
         List<Surgery> existing = loadSurgeries();
-        for (Surgery s : existing) {
-            if (s.getOperatingRoom().equalsIgnoreCase(operatingRoom)
-                    && s.getDate().equals(date)) {
-                System.out.println("\n  Conflict: Room " + operatingRoom
-                        + " is already booked on " + date + ".");
-                System.out.println("  Existing procedure: " + s.getProcedureName()
-                        + " for patient " + s.getPatientName() + ".");
-                System.out.print("\n  Enter a different date (YYYY-MM-DD) or press Enter to cancel: ");
-                String newDate = scanner.nextLine().trim();
-                if (newDate.isBlank()) {
-                    System.out.println("\n  Scheduling cancelled.");
-                    pause(scanner);
-                    return;
-                }
-                date = newDate;
-                // Re-check with new date
-                boolean stillConflict = false;
-                for (Surgery s2 : existing) {
-                    if (s2.getOperatingRoom().equalsIgnoreCase(operatingRoom)
-                            && s2.getDate().equals(date)) {
-                        stillConflict = true;
-                        break;
+        boolean conflict = true;
+        while (conflict) {
+            conflict = false;
+            for (Surgery s : existing) {
+                if (s.getOperatingRoom().equalsIgnoreCase(operatingRoom)
+                        && s.getDate().equals(date)) {
+                    conflict = true;
+                    System.out.println("\n  Conflict: Room " + operatingRoom
+                            + " is already booked on " + date + ".");
+                    System.out.println("  Existing procedure: " + s.getProcedureName()
+                            + " for patient " + s.getPatientName() + ".");
+                    System.out.print("\n  Enter a different date (YYYY-MM-DD) or press Enter to cancel: ");
+                    String newDate = scanner.nextLine().trim();
+                    if (newDate.isBlank()) {
+                        System.out.println("\n  Scheduling cancelled.");
+                        pause(scanner);
+                        return;
                     }
+                    try {
+                        LocalDate.parse(newDate);
+                        date = newDate;
+                    } catch (java.time.format.DateTimeParseException e) {
+                        System.out.println("  Invalid date. Please use YYYY-MM-DD format.");
+                    }
+                    break;
                 }
-                if (stillConflict) {
-                    System.out.println("\n  Conflict still exists on " + date + ". Scheduling cancelled.");
-                    pause(scanner);
-                    return;
-                }
-                break;
             }
         }
 
@@ -209,7 +226,7 @@ public class SurgicalService {
         try {
             if (!Files.exists(surgeriesFile)) return surgeries;
             List<String> lines = Files.readAllLines(surgeriesFile);
-            for (int i = 1; i < lines.size(); i++) { // skip header
+            for (int i = 1; i < lines.size(); i++) {
                 String line = lines.get(i);
                 if (line.isBlank()) continue;
                 String[] parts = parseCsvLine(line);
